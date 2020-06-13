@@ -114,6 +114,7 @@
 (fn on-before-place []
     (if (is-possible-add cursor.x cursor.y current-turn (or cursor.army stones-board))
         (tset (. stones-board cursor.x) cursor.y current-turn) ;; add stone
+        (tset cursor :army nil)
         false))
 
 
