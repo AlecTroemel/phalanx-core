@@ -15,7 +15,6 @@
                       0)))
 
 (fn color-at [x y stone-map] (. (. stone-map x) y))
-(fn place [x y color stone-map] nil)
 
 (fn foreach-spot [stone-map iteratee]
     "call func(color, x,y) for each location on the stone map"
@@ -84,21 +83,37 @@
         (set current-action-counter (- current-action-counter 1))
         false))
 
+(fn on-before-move [self event from]
+    (when (= from :selecting-action)
+      (set current-action-counter (- current-action-counter 1))))
+
 (fn on-enter-placing-stone []
     (tset cursor :x 5)
     (tset cursor :y 5))
 
+(fn on-before-pick []
+    (if (= (color-at cursor.x cursor.y stones-board) current-turn)
+        (tset (. stones-board cursor.x) cursor.y nil) ;; remove stone
+        false))
+
 (fn on-before-place []
     (if (is-possible-add cursor.x cursor.y current-turn stones-board)
-        (tset (. stones-board cursor.x) cursor.y current-turn)
+        (tset (. stones-board cursor.x) cursor.y current-turn) ;; add stone
         false))
+
 
 (var fms (machine.create {:initial "selecting-action"
                           :events [{:name "add" :from "selecting-action" :to "placing-stone"}
-                                   {:name "place" :from "placing-stone" :to "selecting-action"}]
+                                   {:name "move" :from "selecting-action" :to "picking-first-stone"}
+                                   {:name "pick" :from "picking-first-stone" :to "placing-first-stone"}
+                                   {:name "place" :from "placing-first-stone" :to "picking-second-stone"}
+                                   {:name "pick" :from "picking-second-stone" :to "placing-second-stone"}
+                                   {:name "place" :from ["placing-stone" "placing-second-stone"] :to "selecting-action"}]
                           :callbacks {:onenter-selecting-action on-enter-selecting-action
                                       :onbefore-add on-before-add
+                                      :onbefore-move on-before-move
                                       :onenter-placing-stone on-enter-placing-stone
+                                      :onbefore-pick on-before-pick
                                       :onbefore-place on-before-place}}))
 
 
@@ -108,18 +123,27 @@
 ;; ------------------------------------------------------|
 (fn update [] nil)
 
+(fn cursor-movement [key event]
+    (match key
+           "right" (tset cursor :x (+ cursor.x 1))
+           "left" (tset cursor :x (- cursor.x 1))
+           "up" (tset cursor :y (- cursor.y 1))
+           "down" (tset cursor :y (+ cursor.y 1))
+           "x" (: fms event)))
+
 (fn keypressed [key]
     (match fms.current
            "selecting-action" (match key
                                      "right" (tset cursor :action (+ cursor.action 1))
                                      "left" (tset cursor :action (- cursor.action 1))
-                                     "x" (fms:add))
-           "placing-stone" (match key
-                                  "right" (tset cursor :x (+ cursor.x 1))
-                                  "left" (tset cursor :x (- cursor.x 1))
-                                  "up" (tset cursor :y (- cursor.y 1))
-                                  "down" (tset cursor :y (+ cursor.y 1))
-                                  "x" (fms:place)))
+                                     "x" (: fms (match cursor.action 1 :add 2 :move 3 :add)))
+           ;; add action
+           "placing-stone" (cursor-movement key :place)
+           ;; move action
+           "picking-first-stone" (cursor-movement key :pick)
+           "placing-first-stone" (cursor-movement key :place)
+           "picking-second-stone" (cursor-movement key :pick)
+           "placing-second-stone" (cursor-movement key :place))
     (match cursor
            {:action 0} (tset cursor :action 3)
            {:action 4} (tset cursor :action  1)
@@ -141,6 +165,9 @@
     (gfx.rect "black" 10 10 20 20)
     (gfx.rect "white" 170 170 20 20))
 
+(fn draw-cursor []
+    (gfx.circle current-turn (* cursor.x 20) (* cursor.y 20) 7))
+
 (fn draw-ui []
     (gfx.print (.. "White remaining: " (free-stones-count "white" stones-board))  200 10)
     (gfx.print (.. "Black remaining: " (free-stones-count "black" stones-board))  200 30)
@@ -154,7 +181,13 @@
               (gfx.rect "black" (- x 4) 69 39 20))))
     (match fms.current
            "selecting-action" nil
-           "placing-stone" (gfx.circle current-turn (* cursor.x 20) (* cursor.y 20) 7)))
+           ;; add action
+           "placing-stone" (draw-cursor)
+           ;; move action
+           "picking-first-stone" (draw-cursor)
+           "placing-first-stone" (draw-cursor)
+           "picking-second-stone" (draw-cursor)
+           "placing-second-stone" (draw-cursor)))
 
 (fn draw []
     (draw-board)
