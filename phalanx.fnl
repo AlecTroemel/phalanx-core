@@ -79,12 +79,10 @@
       (set current-turn (if (= current-turn "white") "black" "white"))
       (set current-action-counter 2)))
 
-;; TODO: this is a bug, current action needs to be set after checks like on-before-add
-(fn on-leave-selecting-action []
-    (set current-action-counter (- current-action-counter 1)))
-
 (fn on-before-add []
-    (> (free-stones-count current-turn stones-board) 0))
+    (if (> (free-stones-count current-turn stones-board) 0)
+        (set current-action-counter (- current-action-counter 1))
+        false))
 
 (fn on-enter-placing-stone []
     (tset cursor :x 5)
@@ -99,7 +97,6 @@
                           :events [{:name "add" :from "selecting-action" :to "placing-stone"}
                                    {:name "place" :from "placing-stone" :to "selecting-action"}]
                           :callbacks {:onenter-selecting-action on-enter-selecting-action
-                                      :onleave-selecting-action on-leave-selecting-action
                                       :onbefore-add on-before-add
                                       :onenter-placing-stone on-enter-placing-stone
                                       :onbefore-place on-before-place}}))
