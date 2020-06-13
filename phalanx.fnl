@@ -22,25 +22,25 @@
           (each [y color (pairs line)]
                 (iteratee color x y))))
 
-(fn open-neighbors [x y stone-map]
-    "return the orthogonal neighbors which are open (nil)"
+(fn find-neighbors [x y color stone-map]
+    "return the orthogonal neighbors which are the desired color. passing nil for color will find open neighbors"
     (let [neighbors [{ :x (+ x 1) :y y}
                      { :x (- x 1) :y y}
                      { :x x :y (+ y 1)}
                      { :x x :y (- y 1)}]]
       (lume.filter neighbors #(and
-                               (= nil (color-at (. $1 "x") (. $1 "y") stone-map))
+                               (= color (color-at (. $1 "x") (. $1 "y") stone-map))
                                (> (. $1 "x") 0)
-                               (< (. $1 "x") map-size)
+                               (<= (. $1 "x") map-size)
                                (> (. $1 "y") 0)
-                               (< (. $1 "y") map-size)))))
+                               (<= (. $1 "y") map-size)))))
 
 (fn possible-adds [color stone-map]
     "possible locations for the add action for a color on a map"
     (local moves [])
     (foreach-spot stone-map
                   #(when (= $1 color)
-                    (each [i spot (pairs (open-neighbors $2 $3 stone-map))]
+                    (each [i spot (pairs (find-neighbors $2 $3 nil stone-map))]
                      (table.insert moves spot))))
     (lume.unique moves))
 
@@ -48,6 +48,19 @@
     (lume.any (possible-adds color stone-map)
               #(and (= (. $1 :x) x)
                     (= (. $1 :y) y))))
+
+(fn army-at [x y color stone-map]
+    "find all connected pieces (an army) for a color starting at a position, returns a board"
+    (fn army-tail [x y seen]
+        (each [i spot (pairs (find-neighbors x y color stone-map))]
+              (when (not (= color (color-at spot.x spot.y seen)))
+                (tset (. seen spot.x) spot.y color)
+                (lume.merge seen (army-tail spot.x spot.y seen))))
+        seen)
+    (var temp-board [])
+    (for [i 1 map-size] (tset temp-board i []))
+    (army-tail x y temp-board))
+
 
 ;; ------------------------------------------------------|
 ;; |       Finite state machine & Global State           |
@@ -93,11 +106,13 @@
 
 (fn on-before-pick []
     (if (= (color-at cursor.x cursor.y stones-board) current-turn)
-        (tset (. stones-board cursor.x) cursor.y nil) ;; remove stone
+        (do
+         (tset (. stones-board cursor.x) cursor.y nil) ;; remove stone
+         (tset cursor :army (army-at cursor.x cursor.y current-turn stones-board)))
         false))
 
 (fn on-before-place []
-    (if (is-possible-add cursor.x cursor.y current-turn stones-board)
+    (if (is-possible-add cursor.x cursor.y current-turn (or cursor.army stones-board))
         (tset (. stones-board cursor.x) cursor.y current-turn) ;; add stone
         false))
 
@@ -115,7 +130,6 @@
                                       :onenter-placing-stone on-enter-placing-stone
                                       :onbefore-pick on-before-pick
                                       :onbefore-place on-before-place}}))
-
 
 ;; ------------------------------------------------------|
 ;; |                  Graphics & Input                   |
