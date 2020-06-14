@@ -1,3 +1,5 @@
+An implimentation of my board game (rules to come).
+
 - [x] display board
 - [x] state machine
 - [x] select action
@@ -10,3 +12,6 @@
   - [ ] when enemy pieces are all gone
   - [ ] when connect to temple
 - [ ] undo (up to the beginning of your turn? or just beginning of action?)
+- [ ] AI
+- [ ] Menu
+- [ ] Tutorial
