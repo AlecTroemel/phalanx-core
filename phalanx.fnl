@@ -14,7 +14,13 @@
                       #(+ $1 (lume.count (lume.filter $2 nil) #(= $1 color)))
                       0)))
 
-(fn color-at [x y stone-map] (. (. stone-map x) y))
+(fn color-at [x y stone-map] (-?> stone-map (. x) (. y)))
+
+(fn color-other [color]
+    (match color
+           "white" "black"
+           "black" "white"
+           _ nil))
 
 (fn foreach-spot [stone-map iteratee]
     "call func(color, x,y) for each location on the stone map"
@@ -61,7 +67,6 @@
     (for [i 1 map-size] (tset temp-board i []))
     (army-tail x y temp-board))
 
-
 ;; ------------------------------------------------------|
 ;; |       Finite state machine & Global State           |
 ;; |                                                     |
@@ -88,7 +93,7 @@
 (fn on-enter-selecting-action []
     (tset cursor :action 1)
     (when (= current-action-counter 0)
-      (set current-turn (if (= current-turn "white") "black" "white"))
+      (set current-turn (color-other current-turn))
       (set current-action-counter 2)))
 
 (fn on-before-add []
@@ -112,9 +117,10 @@
         false))
 
 (fn on-before-place []
-    (if (is-possible-add cursor.x cursor.y current-turn (or cursor.army stones-board))
-        (tset (. stones-board cursor.x) cursor.y current-turn) ;; add stone
-        (tset cursor :army nil)
+    (if (is-possible-add cursor.x cursor.y current-turn (or (. cursor :army) stones-board))
+        (do
+         (tset (. stones-board cursor.x) cursor.y current-turn) ;; add stone
+         (tset cursor :army nil))
         false))
 
 
