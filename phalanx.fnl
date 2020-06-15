@@ -89,6 +89,7 @@
            UP (values #($1) #(- $1 1))
            DOWN (values #($1) #(+ $1 1))))
 
+;; TODO: not working yet
 (fn get-starting-position [x y color direction stone-map]
     (let [opponate-color (color-other color)
           (x-iter y-iter) (direction-iters (opposite direction))] ;; NOTE: we need to look backwords
@@ -99,6 +100,7 @@
                  color (get-starting-position-tail (x-iter x) (y-iter y))))
       (get-starting-position-tail x y)))
 
+;; TODO: not working yet
 (fn is-possible-push [start-x start-y color direction stone-map]
     "check if pushing a line starting from a point for a color in a direction is valid"
     (let [(start-x start-y) (get-starting-position start-x start-y color direction stone-map)

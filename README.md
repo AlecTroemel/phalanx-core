@@ -1,5 +1,6 @@
 An implimentation of my board game (rules to come).
 
+## TODO
 - [x] display board
 - [x] state machine
 - [x] select action
@@ -15,3 +16,10 @@ An implimentation of my board game (rules to come).
 - [ ] AI
 - [ ] Menu
 - [ ] Tutorial
+
+
+## External Libraries
+- [love2d](https://love2d.org/)
+- [lume](https://github.com/rxi/lume)
+- [lua-state-machine](https://github.com/kyleconroy/lua-state-machine)
+- [inspect.lua](https://github.com/kikito/inspect.lua)
