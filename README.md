@@ -1,4 +1,4 @@
-An implimentation of my board game (rules to come).
+An implimentation of my board game (rules to come). Written in [Fennel](https://fennel-lang.org).
 
 ## TODO
 - [x] display board
