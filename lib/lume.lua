@@ -464,6 +464,18 @@ function lume.clone(t)
   return rtn
 end
 
+function lume.deepclone(obj, seen)
+	-- Handle non-tables and previously-seen tables.
+	if type(obj) ~= 'table' then return obj end
+	if seen and seen[obj] then return seen[obj] end
+
+	-- New table; mark it as seen an copy recursively.
+	local s = seen or {}
+	local res = {}
+	s[obj] = res
+	for k, v in next, obj do res[lume.deepclone(k, s)] = lume.deepclone(v, s) end
+	return setmetatable(res, getmetatable(obj))
+end
 
 function lume.fn(fn, ...)
   assert(iscallable(fn), "expected a function as the first argument")

@@ -35,6 +35,12 @@
           (each [y color (pairs line)]
                 (iteratee color x y))))
 
+(fn in-bounds [x y]
+    (and (> x 0)
+         (<= x map-size)
+         (> y 0)
+         (<= y map-size)))
+
 (fn find-neighbors [x y color stone-map]
     "return the orthogonal neighbors which are the desired color. passing nil for color will find open neighbors"
     (let [neighbors [{ :x (+ x 1) :y y}
@@ -43,10 +49,7 @@
                      { :x x :y (- y 1)}]]
       (lume.filter neighbors #(and
                                (= color (color-at (. $1 "x") (. $1 "y") stone-map))
-                               (> (. $1 "x") 0)
-                               (<= (. $1 "x") map-size)
-                               (> (. $1 "y") 0)
-                               (<= (. $1 "y") map-size)))))
+                               (in-bounds (. $1 "x")  (. $1 "y") )))))
 
 (fn possible-adds [color stone-map]
     "possible locations for the add action for a color on a map"
@@ -73,7 +76,6 @@
     (var temp-board [])
     (for [i 1 map-size] (tset temp-board i []))
     (army-tail x y temp-board))
-
 
 (fn opposite [direction]
     (match direction
@@ -116,11 +118,46 @@
           (is-possible-push-tail start-x start-y 0 0)
           false))) ;; must start on your own color
 
+(fn place-stone [x y color old-board]
+    "return a new board with a stone added given coords"
+    (let [new-board (lume.deepclone old-board)]
+      (tset (. new-board x) y color) new-board))
+
+(fn remove-stone [x y old-board]
+    "return a new board with a stone removed at given coords"
+    (let [new-board (lume.deepclone old-board)]
+      (tset (. new-board x) y nil) new-board))
+
+(fn push [x y color direction old-board]
+    "return a new board after a push action at the given coords and direction"
+    (let [new-board (lume.deepclone old-board)
+          (start-x start-y) (get-starting-position x y color direction new-board)
+          (x-iter y-iter) (direction-iters direction)]
+      (fn push-line-tail [x y prev-color]
+          (let [next-color (color-at x y new-board)]
+            (tset (. new-board x) y prev-color)
+            (when (~= nil next-color)
+              (push-line-tail (x-iter x) (y-iter y) next-color))))
+      (push-line-tail start-x start-y nil)
+      new-board))
+
+
+(fn remove-dead-stones [old-board]
+    "return a board with all dead/isolated stones removed"
+    (local new-board (lume.deepclone old-board))
+    (foreach-spot old-board
+                  (lambda [color x y]
+                    (when (or (= 0 (# (find-neighbors x y color old-board)))
+                              (not (in-bounds x y)))
+                      (tset (. new-board x) y nil))))
+    new-board)
+
+
 ;; ------------------------------------------------------|
 ;; |       Finite state machine & Global State           |
 ;; |                                                     |
 ;; ------------------------------------------------------|
-(local stones-board []) ;; nil, 0=white, 1=black
+(var stones-board []) ;; nil, 0=white, 1=black
 (var current-turn BLACK) ;; or WHITE
 (var current-action-counter 2) ;; 2 actions per turn
 (var cursor {:action 2 :x 5 :y 5 :direction UP})
@@ -139,58 +176,8 @@
     (set current-turn BLACK)
     (set current-action-counter 2))
 
-(fn on-enter-selecting-action []
-    (tset cursor :action 1)
-    (when (= current-action-counter 0)
-      (set current-turn (color-other current-turn))
-      (set current-action-counter 2)))
-
-(fn on-before-add []
-    (if (> (free-stones-count current-turn stones-board) 0)
-        (set current-action-counter (- current-action-counter 1))
-        false))
-
-(fn on-before-move [self event from]
-    (when (= from :selecting-action)
-      (set current-action-counter (- current-action-counter 1))))
-
-(fn on-enter-placing-stone []
-    (tset cursor :x 5)
-    (tset cursor :y 5))
-
-(fn on-before-pick []
-    (if (= (color-at cursor.x cursor.y stones-board) current-turn)
-        (do
-         ;; remove stone
-         (tset (. stones-board cursor.x) cursor.y nil)
-         (tset cursor :army (army-at cursor.x cursor.y current-turn stones-board)))
-        false))
-
-(fn on-before-place []
-    (if (is-possible-add cursor.x cursor.y current-turn (or (. cursor :army) stones-board))
-        (do
-         ;; add stone
-         (tset (. stones-board cursor.x) cursor.y current-turn)
-         (tset cursor :army nil))
-        false))
-
-(fn on-before-lineup []
+(fn take-an-action []
     (set current-action-counter (- current-action-counter 1)))
-
-(fn on-before-push []
-    (if (is-possible-push cursor.x cursor.y current-turn cursor.direction stones-board)
-        ;; Push stones
-        (let [(start-x start-y) (get-starting-position cursor.x cursor.y current-turn cursor.direction stones-board)
-              (x-iter y-iter) (direction-iters cursor.direction)]
-          (fn push-line-tail [x y prev-color]
-              (let [next-color (color-at x y stones-board)]
-                (tset (. stones-board x) y prev-color)
-                (when (~= nil next-color)
-                  (push-line-tail (x-iter x) (y-iter y) next-color))))
-          (push-line-tail start-x start-y nil))
-        false))
-
-
 
 (var fms (machine.create {:initial "selecting-action"
                           :events [;; Move
@@ -205,14 +192,31 @@
                                    ;; Push
                                    {:name "lineup" :from "selecting-action" :to "picking-push-line"}
                                    {:name "push" :from "picking-push-line" :to "selecting-action"}]
-                          :callbacks {:onenter-selecting-action on-enter-selecting-action
-                                      :onbefore-add on-before-add
-                                      :onbefore-move on-before-move
-                                      :onenter-placing-stone on-enter-placing-stone
-                                      :onbefore-pick on-before-pick
-                                      :onbefore-place on-before-place
-                                      :onbefore-linup on-before-lineup
-                                      :onbefore-push on-before-push}}))
+                          :callbacks {:onenter-selecting-action #(do
+                                                                  (set stones-board (remove-dead-stones stones-board))
+                                                                  (tset cursor :action 1)
+                                                                  (when (= current-action-counter 0)
+                                                                    (set current-turn (color-other current-turn))
+                                                                    (set current-action-counter 2)))
+                                      :onbefore-add #(if (> (free-stones-count current-turn stones-board) 0)
+                                                        (take-an-action)
+                                                        false)
+                                      :onbefore-move #(when (= $2 :selecting-action) (take-an-action))
+                                      :onenter-placing-stone #(do (tset cursor :x 5) (tset cursor :y 5))
+                                      :onbefore-pick #(if (= (color-at cursor.x cursor.y stones-board) current-turn)
+                                                       (do
+                                                        (set stones-board (remove-stone cursor.x cursor.y stones-board))
+                                                        (tset cursor :army (army-at cursor.x cursor.y current-turn stones-board)))
+                                                       false)
+                                      :onbefore-place #(if (is-possible-add cursor.x cursor.y current-turn (or (. cursor :army) stones-board))
+                                                        (do
+                                                         (set stones-board (place-stone cursor.x cursor.y current-turn stones-board))
+                                                         (tset cursor :army nil))
+                                                        false)
+                                      :onbefore-linup take-an-action
+                                      :onbefore-push #(if (is-possible-push cursor.x cursor.y current-turn cursor.direction stones-board)
+                                                       (set stones-board (push cursor.x cursor.y current-turn cursor.direction stones-board))
+                                                       false)}}))
 
 ;; ------------------------------------------------------|
 ;; |                  Graphics & Input                   |
