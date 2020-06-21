@@ -15,8 +15,6 @@
 ;; |           Immutable functions              |
 ;; |                                            |
 ;; ----------------------------------------------
-(fn identity [a] a)
-
 (fn free-stones-count [color stone-map]
     "the number of remain stones (max of 9) looking at the stone-map"
     (- 9 (lume.reduce stone-map
@@ -86,10 +84,10 @@
 
 (fn direction-iters [direction]
     (match direction
-           LEFT (values #(- $1 1) #(identity $1))
-           RIGHT (values #(+ $1 1) #(identity $1))
-           UP (values #(identity $1) #(- $1 1))
-           DOWN (values #(identity $1) #(+ $1 1))))
+           LEFT (values #(- $1 1) #$1)
+           RIGHT (values #(+ $1 1) #$1)
+           UP (values #$1 #(- $1 1))
+           DOWN (values #$1 #(+ $1 1))))
 
 (fn get-starting-position [x y color direction stone-map]
     (let [opponate-color (color-other color)
