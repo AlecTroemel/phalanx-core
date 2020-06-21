@@ -11,13 +11,10 @@
 (global RIGHT "right")
 
 
-
-
 ;; ----------------------------------------------
 ;; |           Immutable functions              |
 ;; |                                            |
 ;; ----------------------------------------------
-(fn != [a b] (not (= a b)))
 (fn identity [a] a)
 
 (fn free-stones-count [color stone-map]
@@ -71,7 +68,7 @@
     "find all connected pieces (an army) for a color starting at a position, returns a board"
     (fn army-tail [x y seen]
         (each [i spot (pairs (find-neighbors x y color stone-map))]
-              (when (!= color (color-at spot.x spot.y seen))
+              (when (~= color (color-at spot.x spot.y seen))
                 (tset (. seen spot.x) spot.y color)
                 (lume.merge seen (army-tail spot.x spot.y seen))))
         seen)
@@ -98,12 +95,10 @@
     (let [opponate-color (color-other color)
           (x-iter y-iter) (direction-iters (opposite direction))] ;; NOTE: we need to look backwords
       (fn get-starting-position-tail [x y]
-          (let [next-x (x-iter x)
-                next-y (y-iter y)]
-            (match (color-at next-x next-y stone-map)
-                   nil (values x y)
-                   opponate-color (values x y)
-                   color (get-starting-position-tail next-x next-y))))
+          (match (color-at (x-iter x) (y-iter y) stone-map)
+                 nil (values x y)
+                 opponate-color (values x y)
+                 color (get-starting-position-tail (x-iter x) (y-iter y))))
       (get-starting-position-tail x y)))
 
 (fn is-possible-push [start-x start-y color direction stone-map]
@@ -181,6 +176,9 @@
          (tset cursor :army nil))
         false))
 
+(fn on-before-lineup []
+    (set current-action-counter (- current-action-counter 1)))
+
 (fn on-before-push []
     (if (is-possible-push cursor.x cursor.y current-turn cursor.direction stones-board)
         ;; Push stones
@@ -189,7 +187,7 @@
           (fn push-line-tail [x y prev-color]
               (let [next-color (color-at x y stones-board)]
                 (tset (. stones-board x) y prev-color)
-                (when (!= nil next-color)
+                (when (~= nil next-color)
                   (push-line-tail (x-iter x) (y-iter y) next-color))))
           (push-line-tail start-x start-y nil))
         false))
@@ -215,6 +213,7 @@
                                       :onenter-placing-stone on-enter-placing-stone
                                       :onbefore-pick on-before-pick
                                       :onbefore-place on-before-place
+                                      :onbefore-linup on-before-lineup
                                       :onbefore-push on-before-push}}))
 
 ;; ------------------------------------------------------|
@@ -298,6 +297,7 @@
            "placing-first-stone" (draw-cursor)
            "picking-second-stone" (draw-cursor)
            "placing-second-stone" (draw-cursor)
+           ;; push action
            "picking-push-line" (do
                                 (draw-cursor)
                                 (gfx.print (.. "direction: " cursor.direction) 200 90))))
