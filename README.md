@@ -7,7 +7,7 @@ An implimentation of my board game (rules to come). Written in [Fennel](https://
 - [x] add action
 - [x] push action
   - [x] restrict to army
-- [ ] "dead rule", when a piece is alone or off the board it is dead and remove
+- [x] "dead rule", when a piece is alone or off the board it is dead and remove
 - [x] Push
 - [ ] win conditions
   - [ ] when enemy pieces are all gone
