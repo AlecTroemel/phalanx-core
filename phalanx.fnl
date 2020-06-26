@@ -260,7 +260,7 @@
                                 (direction-handler key)))
     (match cursor
            {:action 0} (tset cursor :action 3)
-           {:action 4} (tset cursor :action  1)
+           {:action 4} (tset cursor :action 1)
            {:x 0} (tset cursor :x 1)
            {:x 10} (tset cursor :x 9)
            {:y 0} (tset cursor :y 1)
