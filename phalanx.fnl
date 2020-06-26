@@ -38,8 +38,10 @@
 (fn in-bounds [x y]
     (and (> x 0)
          (<= x map-size)
-         (>= y 0)
-         (<= y map-size)))
+         (> y 0)
+         (<= y map-size)
+         (not (and (= x 1) (= y 1)))   ;; black temple
+         (not (and (= x 9) (= y 9))))) ;; white temple
 
 (fn find-neighbors [x y color stone-map]
     "return the orthogonal neighbors which are the desired color. passing nil for color will find open neighbors"
