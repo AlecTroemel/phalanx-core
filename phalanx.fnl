@@ -38,7 +38,7 @@
 (fn in-bounds [x y]
     (and (> x 0)
          (<= x map-size)
-         (> y 0)
+         (>= y 0)
          (<= y map-size)))
 
 (fn find-neighbors [x y color stone-map]
@@ -201,7 +201,7 @@
                                       :onbefore-add #(if (> (free-stones-count current-turn stones-board) 0)
                                                         (take-an-action)
                                                         false)
-                                      :onbefore-move #(when (= $2 :selecting-action) (take-an-action))
+                                      :onbefore-move #(when (= $3 :selecting-action) (take-an-action))
                                       :onenter-placing-stone #(do (tset cursor :x 5) (tset cursor :y 5))
                                       :onbefore-pick #(if (= (color-at cursor.x cursor.y stones-board) current-turn)
                                                        (do
@@ -213,7 +213,7 @@
                                                          (set stones-board (place-stone cursor.x cursor.y current-turn stones-board))
                                                          (tset cursor :army nil))
                                                         false)
-                                      :onbefore-linup take-an-action
+                                      :onbefore-lineup take-an-action
                                       :onbefore-push #(if (is-possible-push cursor.x cursor.y current-turn cursor.direction stones-board)
                                                        (set stones-board (push cursor.x cursor.y current-turn cursor.direction stones-board))
                                                        false)}}))
