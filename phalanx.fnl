@@ -226,7 +226,9 @@
                                    {:name "place" :from ["placing-stone" "placing-second-stone"] :to "selecting-action"}
                                    ;; Push
                                    {:name "lineup" :from "selecting-action" :to "picking-push-line"}
-                                   {:name "push" :from "picking-push-line" :to "selecting-action"}]
+                                   {:name "push" :from "picking-push-line" :to "selecting-action"}
+                                   ;; Gameover
+                                   {:name "endgame" :from "selecting-action" :to "game-over"}]
                           :callbacks {:onenter-selecting-action
                                       #(do
                                         (set stones-board (remove-dead-stones stones-board))
@@ -235,7 +237,7 @@
                                           (set current-turn (color-other current-turn))
                                           (set current-action-counter 2))
                                         (let [winner (game-over stones-board)]
-                                          (when winner (print (.. "the winner is: " winner)))))
+                                          (: $1 :endgame winner)))
 
                                       :onbefore-add
                                       #(if (> (free-stones-count current-turn stones-board) 0)
@@ -265,7 +267,11 @@
                                       :onbefore-push
                                       #(if (is-possible-push cursor.x cursor.y current-turn cursor.direction stones-board)
                                         (set stones-board (push cursor.x cursor.y current-turn cursor.direction stones-board))
-                                        false)}}))
+                                        false)
+
+                                      :onenter-game-over
+                                      (lambda [self event from to winner]
+                                        (print winner))}}))
 
 ;; ------------------------------------------------------|
 ;; |                  Graphics & Input                   |
