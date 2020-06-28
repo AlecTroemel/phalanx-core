@@ -1,13 +1,11 @@
+(include :lib.globals)
+(global col globals.col)
+(global dir globals.dir)
+
 (global lume (require :lib.lume))
 (global machine (require :lib.fsm))
 (global inspect (require :lib.inspect))
-(global map-size 9)
-(global BLACK "black")
-(global WHITE "white")
-(global UP "up")
-(global DOWN "down")
-(global LEFT "left")
-(global RIGHT "right")
+
 
 
 ;; ----------------------------------------------
@@ -24,8 +22,8 @@
 
 (fn color-other [color]
     (match color
-           WHITE BLACK
-           BLACK WHITE
+           col.WHITE col.BLACK
+           col.BLACK col.WHITE
            _ nil))
 
 (fn foreach-spot [stone-map iteratee]
@@ -36,9 +34,9 @@
 
 (fn in-bounds [x y]
     (and (> x 0)
-         (<= x map-size)
+         (<= x globals.map-size)
          (> y 0)
-         (<= y map-size)
+         (<= y globals.map-size)
          (not (and (= x 1) (= y 1)))   ;; black temple
          (not (and (= x 9) (= y 9))))) ;; white temple
 
@@ -75,22 +73,22 @@
                 (lume.merge seen (army-tail spot.x spot.y seen))))
         seen)
     (var temp-board [])
-    (for [i 1 map-size] (tset temp-board i []))
+    (for [i 1 globals.map-size] (tset temp-board i []))
     (army-tail x y temp-board))
 
 (fn opposite [direction]
     (match direction
-           LEFT RIGHT
-           RIGHT LEFT
-           UP DOWN
-           DOWN UP))
+           dir.LEFT dir.RIGHT
+           dir.RIGHT dir.LEFT
+           dir.UP dir.DOWN
+           dir.DOWN dir.UP))
 
 (fn direction-iters [direction]
     (match direction
-           LEFT (values #(- $1 1) #$1)
-           RIGHT (values #(+ $1 1) #$1)
-           UP (values #$1 #(- $1 1))
-           DOWN (values #$1 #(+ $1 1))))
+           dir.LEFT (values #(- $1 1) #$1)
+           dir.RIGHT (values #(+ $1 1) #$1)
+           dir.UP (values #$1 #(- $1 1))
+           dir.DOWN (values #$1 #(+ $1 1))))
 
 (fn get-starting-position [x y color direction stone-map]
     (let [opponate-color (color-other color)
@@ -165,8 +163,8 @@
 
 (fn touching-temple [color board]
     "check if color is touching the temple"
-    (let [x-goal (if (= color BLACK) 1 9)
-          y-goal (if (= color BLACK) 1 9)]
+    (let [x-goal (if (= color col.BLACK) 1 9)
+          y-goal (if (= color col.BLACK) 1 9)]
       (var touching false)
       (foreach-spot board (lambda [c x y]
                             (when (and (= c color)
@@ -178,11 +176,11 @@
     "return color that has won the game, else false"
     (if
      ;; Win by evisceration
-     (= 9 (free-stones-count BLACK board)) WHITE
-     (= 9 (free-stones-count WHITE board)) BLACK
+     (= 9 (free-stones-count col.BLACK board)) col.WHITE
+     (= 9 (free-stones-count col.WHITE board)) col.BLACK
      ;; Win by touching the temple
-     (touching-temple BLACK board) BLACK
-     (touching-temple WHITE board) WHITE
+     (touching-temple col.BLACK board) col.BLACK
+     (touching-temple col.WHITE board) col.WHITE
      ;; game is STILL ON
      false))
 
@@ -193,82 +191,88 @@
 ;; ------------------------------------------------------|
 
 (fn take-an-action [self]
-    (tset self :current-turn-action-counter (- self.current-turn-action-counter 1)))
+    (tset self :current-turn-action-counter (- self.state.state.current-turn-action-counter 1)))
 
-(var fms (machine.create {:army nil ;; used for limiting move actions
-                          :current-turn BLACK
-                          :current-turn-action-counter 2
-                          :board {1 {}
-                                  2 {2 WHITE 3 WHITE}
-                                  3 {2 WHITE 3 WHITE}
-                                  4 {}
-                                  5 {}
-                                  5 {}
-                                  7 {7 BLACK 8 BLACK}
-                                  8 {7 BLACK 8 BLACK}
-                                  9 {}}
-                          :initial "selecting-action"
-                          :events [;; Move
-                                   {:name "move" :from "selecting-action" :to "picking-first-stone"}
-                                   {:name "pick" :from "picking-first-stone" :to "placing-first-stone"}
-                                   {:name "place" :from "placing-first-stone" :to "picking-second-stone"}
-                                   {:name "pick" :from "picking-second-stone" :to "placing-second-stone"}
-                                   ;; Add
-                                   {:name "add" :from "selecting-action" :to "placing-stone"}
-                                   ;; Add / Move
-                                   {:name "place" :from ["placing-stone" "placing-second-stone"] :to "selecting-action"}
-                                   ;; Push
-                                   {:name "lineup" :from "selecting-action" :to "picking-push-line"}
-                                   {:name "push" :from "picking-push-line" :to "selecting-action"}
-                                   ;; Gameover
-                                   {:name "endgame" :from "selecting-action" :to "game-over"}]
-                          :callbacks {:onenter-selecting-action
-                                      #(do
-                                        (set self.board (remove-dead-stones self.board))
-                                        (when (= self.current-turn-action-counter 0)
-                                          (set self.current-turn (color-other self.current-turn))
-                                          (set self.current-turn-action-counter 2))
-                                        (let [winner (game-over self.board)]
-                                          (: $1 :endgame winner)))
+(fn onenter-selecting-action [self]
+    (set self.state.board (remove-dead-stones self.state.board))
+    (when (= self.state.current-turn-action-counter 0)
+      (set self.state.current-turn (color-other self.state.current-turn))
+      (set self.state.current-turn-action-counter 2))
+    (let [winner (game-over self.state.board)]
+      (self.state.endgame winner)))
 
-                                      :onbefore-add
-                                      #(if (> (free-stones-count self.current-turn self.board) 0)
-                                        (take-an-action $1)
-                                        false)
+(fn onbefore-add [self]
+  (if (> (free-stones-count self.state.current-turn self.state.board) 0)
+      (take-an-action self)
+      false))
 
-                                      :onbefore-move #(when (= $3 :selecting-action) (take-an-action $1))
+(fn onbefore-move [self _event from]
+    (when (= from :selecting-action) (take-an-action self)))
 
-                                      ;; :onenter-placing-stone #(do (tset cursor :x 5) (tset cursor :y 5))
+(fn onbefore-pick [self _event _from _to coords]
+  (let [{: x : y} coords]
+    (if (= (color-at x y self.state.board) self.state.current-turn)
+        (do
+         (set self.state.board (remove-stone x y self.state.board))
+         (tset self :army (army-at x y self.state.current-turn self.state.board)))
+        false)))
 
-                                      :onbefore-pick
-                                      (lambda [self _event _from _to coords]
-                                        (let [{: x : y} coords]
-                                          (if (= (color-at x y self.board) self.current-turn)
-                                              (do
-                                               (set self.board (remove-stone x y self.board))
-                                               (tset self :army (army-at x y self.current-turn self.board)))
-                                              false)))
+(fn onbefore-place [self _event _from _to coords]
+  (let [{: x : y } coords
+        board (or (. self :army) self.state.board)]
+    (if (is-possible-add x y self.state.current-turn board)
+        (do
+         (set self.state.board (place-stone x y self.state.current-turn self.state.board))
+         (tset self :army nil))
+        false)))
 
-                                      :onbefore-place
-                                      (lambda [self event from to coords]
-                                        (let [{: x : y } coords
-                                              board (or (. self :army) self.board)]
-                                          (if (is-possible-add x y self.current-turn board)
-                                              (do
-                                               (set self.board (place-stone x y self.current-turn self.board))
-                                               (tset self :army nil))
-                                              false)))
+(fn onbefore-push [self _event _from _to coords]
+  (let [{: x : y : direction} coords]
+    (if (is-possible-push x y self.state.current-turn direction self.state.board)
+        (set self.state.board (push x y self.state.current-turn direction self.state.board))
+        false)))
 
-                                      :onbefore-lineup take-an-action
+(fn onenter-game-over [self event from to winner]
+  (print winner))
 
-                                      :onbefore-push
-                                      (lambda [self event from to coords]
-                                        (let [{: x : y : direction} coords]
-                                          (if (is-possible-push x y self.current-turn direction self.board)
-                                              (set self.board (push x y self.current-turn direction self.board))
-                                              false)))
+;; output is the game
+(fn init-board []
+    (machine.create {:state {:army nil ;; used for limiting move actions
+                             :current-turn col.BLACK
+                             :current-turn-action-counter 2
+                             :board {1 {}
+                                     2 {2 col.WHITE 3 col.WHITE}
+                                     3 {2 col.WHITE 3 col.WHITE}
+                                     4 {}
+                                     5 {}
+                                     5 {}
+                                     7 {7 col.BLACK 8 col.BLACK}
+                                     8 {7 col.BLACK 8 col.BLACK}
+                                     9 {}}}
+                     ;; :functs {:free-stones-count (lambda [color]
+                     ;;                               (free-stones-count color self.state.state.board))}
+                     :initial "selecting-action"
+                     :events [;; Move
+                              {:name "move" :from "selecting-action" :to "picking-first-stone"}
+                              {:name "pick" :from "picking-first-stone" :to "placing-first-stone"}
+                              {:name "place" :from "placing-first-stone" :to "picking-second-stone"}
+                              {:name "pick" :from "picking-second-stone" :to "placing-second-stone"}
+                              ;; Add
+                              {:name "add" :from "selecting-action" :to "placing-stone"}
+                              ;; Add / Move
+                              {:name "place" :from ["placing-stone" "placing-second-stone"] :to "selecting-action"}
+                              ;; Push
+                              {:name "lineup" :from "selecting-action" :to "picking-push-line"}
+                              {:name "push" :from "picking-push-line" :to "selecting-action"}
+                              ;; Gameover
+                              {:name "endgame" :from "selecting-action" :to "game-over"}]
+                     :callbacks {: onenter-selecting-action
+                                 : onbefore-add
+                                 : onbefore-move
+                                 : onbefore-pick
+                                 : onbefore-place
+                                 :onbefore-lineup take-an-action
+                                 : onbefore-push
+                                 : onenter-game-over}}))
 
-
-                                      :onenter-game-over
-                                      (lambda [self event from to winner]
-                                        (print winner))}}))
+{: init-board}

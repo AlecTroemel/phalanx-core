@@ -3,31 +3,42 @@
 ;; |                                                     |
 ;; ------------------------------------------------------|
 (include :lib.gfx)
+(include :lib.globals)
+(global inspect (require :lib.inspect))
 
-(var cursor {:action 2 :x 5 :y 5 :direction UP})
+(global col globals.col)
+(global dir globals.dir)
+(global phalanx (include :phalanx))
+
+(var fms nil)
+
+(var cursor {:action 2 :x 5 :y 5 :direction dir.UP})
+
+(fn init []
+    (set fms (phalanx.init-board)))
 
 (fn update [] nil)
 
 (fn cursor-movement-handler [key event]
     (match key
-           RIGHT (tset cursor :x (+ cursor.x 1))
-           LEFT (tset cursor :x (- cursor.x 1))
-           UP (tset cursor :y (- cursor.y 1))
-           DOWN (tset cursor :y (+ cursor.y 1))
+           dir.RIGHT (tset cursor :x (+ cursor.x 1))
+           dir.LEFT (tset cursor :x (- cursor.x 1))
+           dir.UP (tset cursor :y (- cursor.y 1))
+           dir.DOWN (tset cursor :y (+ cursor.y 1))
            "x" (: fms event)))
 
 (fn direction-handler [key]
     (match key
-           "w" (tset cursor :direction UP)
-           "s" (tset cursor :direction DOWN)
-           "a" (tset cursor :direction LEFT)
-           "d" (tset cursor :direction RIGHT)))
+           "w" (tset cursor :direction dir.UP)
+           "s" (tset cursor :direction dir.DOWN)
+           "a" (tset cursor :direction dir.LEFT)
+           "d" (tset cursor :direction dir.RIGHT)))
 
 (fn keypressed [key]
     (match fms.current
            "selecting-action" (match key
-                                     RIGHT (tset cursor :action (+ cursor.action 1))
-                                     LEFT (tset cursor :action (- cursor.action 1))
+                                     dir.RIGHT (tset cursor :action (+ cursor.action 1))
+                                     dir.LEFT (tset cursor :action (- cursor.action 1))
                                      "x" (: fms (match cursor.action 1 :add 2 :move 3 :lineup)))
            ;; add action
            "placing-stone" (cursor-movement-handler key :place)
@@ -55,25 +66,28 @@
            (gfx.line 20 j 180 j)    ;; x lines
            (gfx.line j 20 j 180)))  ;; y lines
     ;; the stones currently on the board
-    (foreach-spot stones-board #(gfx.circle $1 (* $2 20) (* $3 20) 9))
+    (print (inspect fms))
+    (each [x line (pairs fms.state.board)]
+          (each [y color (pairs line)]
+                (gfx.circle color (* x 20) (* y 20) 9)))
     ;; temples
-    (gfx.rect BLACK 10 10 20 20)
-    (gfx.rect WHITE 170 170 20 20))
+    (gfx.rect col.BLACK 10 10 20 20)
+    (gfx.rect col.WHITE 170 170 20 20))
 
 (fn draw-cursor []
-    (gfx.circle current-turn (* cursor.x 20) (* cursor.y 20) 7))
+    (gfx.circle fms.state.current-turn (* cursor.x 20) (* cursor.y 20) 7))
 
 (fn draw-ui []
-    (gfx.print (.. "White remaining: " (free-stones-count WHITE stones-board))  200 10)
-    (gfx.print (.. "Black remaining: " (free-stones-count BLACK stones-board))  200 30)
-    (gfx.print (.. "Turn: " current-turn) 200 50)
-    (gfx.print (.. "actions left: " current-action-counter) 200 110)
+    ;; (gfx.print (.. "White remaining: " (fms.functs.free-stones-count col.WHITE))  200 10)
+    ;; (gfx.print (.. "Black remaining: " (fms.functs.free-stones-count col.BLACK))  200 30)
+    (gfx.print (.. "Turn: " fms.state.current-turn) 200 50)
+    (gfx.print (.. "actions left: " fms.state.current-turn-action-counter) 200 110)
     (gfx.print (.. "state: " fms.current) 200 130)
     (each [i action (ipairs ["add" "move" "push"])]
           (let [x (+ 200 (* i 40))]
            (gfx.print action x 70)
             (when (= i cursor.action)
-              (gfx.rect BLACK (- x 4) 69 39 20))))
+              (gfx.rect col.BLACK (- x 4) 69 39 20))))
     (match fms.current
            "selecting-action" nil
            ;; add action

@@ -85,7 +85,8 @@ function machine.create(options)
   local fsm = {}
   setmetatable(fsm, machine)
 
-  fsm.options = options
+  fsm.state = options.state or {}
+  fsm.functs = options.functs or {}
   fsm.current = options.initial or 'none'
   fsm.asyncState = NONE
   fsm.events = {}
