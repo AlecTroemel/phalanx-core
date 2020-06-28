@@ -12,10 +12,11 @@
 ;; |           Immutable functions              |
 ;; |                                            |
 ;; ----------------------------------------------
-(fn free-stones-count [color stone-map]
+(fn free-stones-count [color board]
     "the number of remain stones (max of 9) looking at the stone-map"
-    (- 9 (lume.reduce stone-map
-                      #(+ $1 (lume.count (lume.filter $2 nil) #(= $1 color)))
+    (- 9 (lume.reduce board
+                      (lambda [acc row]
+                        (+ acc (lume.count (lume.filter row nil) #(= $1 color))))
                       0)))
 
 (fn color-at [x y stone-map] (-?> stone-map (. x) (. y)))
@@ -43,7 +44,7 @@
 (fn find-neighbors [x y color stone-map]
     "return the orthogonal neighbors which are the desired color. passing nil for color will find open neighbors"
     (let [neighbors [{ :x (+ x 1) :y y}
-                     { :x (- x 1) :y y}
+                      { :x (- x 1) :y y}
                      { :x x :y (+ y 1)}
                      { :x x :y (- y 1)}]]
       (lume.filter neighbors #(and
@@ -62,7 +63,7 @@
 (fn is-possible-add [x y color stone-map]
     (lume.any (possible-adds color stone-map)
               #(and (= (. $1 :x) x)
-                    (= (. $1 :y) y))))
+                (= (. $1 :y) y))))
 
 (fn army-at [x y color stone-map]
     "find all connected pieces (an army) for a color starting at a position, returns a board"
@@ -92,7 +93,7 @@
 
 (fn get-starting-position [x y color direction stone-map]
     (let [opponate-color (color-other color)
-          (x-iter y-iter) (direction-iters (opposite direction))] ;; NOTE: we need to look backwords
+                         (x-iter y-iter) (direction-iters (opposite direction))] ;; NOTE: we need to look backwords
       (fn get-starting-position-tail [x y]
           (match (color-at (x-iter x) (y-iter y) stone-map)
                  nil (values x y)
@@ -130,8 +131,8 @@
 (fn push [x y color direction old-board]
     "return a new board after a push action at the given coords and direction"
     (let [new-board (lume.deepclone old-board)
-          (start-x start-y) (get-starting-position x y color direction new-board)
-          (x-iter y-iter) (direction-iters direction)]
+                    (start-x start-y) (get-starting-position x y color direction new-board)
+                    (x-iter y-iter) (direction-iters direction)]
       (fn push-line-tail [x y prev-color]
           (let [next-color (color-at x y new-board)]
             (tset (. new-board x) y prev-color)
@@ -154,7 +155,7 @@
 (fn neighbor-of [x y x-goal y-goal]
     "check if (x,y) is a neighbor of (x-goal, y-goal)"
     (let [neighbors [{ :x (+ x 1) :y y}
-                     { :x (- x 1) :y y}
+                      { :x (- x 1) :y y}
                      { :x x :y (+ y 1)}
                      { :x x :y (- y 1)}]]
       (lume.any neighbors (lambda [spot]
@@ -191,49 +192,50 @@
 ;; ------------------------------------------------------|
 
 (fn take-an-action [self]
-    (tset self :current-turn-action-counter (- self.state.state.current-turn-action-counter 1)))
+    (tset self.state :current-turn-action-counter (- self.state.current-turn-action-counter 1)))
 
 (fn onenter-selecting-action [self]
-    (set self.state.board (remove-dead-stones self.state.board))
+    (tset self.state :board (remove-dead-stones self.state.board))
     (when (= self.state.current-turn-action-counter 0)
-      (set self.state.current-turn (color-other self.state.current-turn))
-      (set self.state.current-turn-action-counter 2))
-    (let [winner (game-over self.state.board)]
-      (self.state.endgame winner)))
+      (tset self.state :current-turn (color-other self.state.current-turn))
+      (tset self.state :current-turn-action-counter 2))
+    ;; (let [winner (game-over self.state.board)]
+    ;;   (when winner (self.endgame winner)))
+    )
 
 (fn onbefore-add [self]
-  (if (> (free-stones-count self.state.current-turn self.state.board) 0)
-      (take-an-action self)
-      false))
+    (if (> (free-stones-count self.state.current-turn self.state.board) 0)
+        (take-an-action self)
+        false))
 
 (fn onbefore-move [self _event from]
     (when (= from :selecting-action) (take-an-action self)))
 
 (fn onbefore-pick [self _event _from _to coords]
-  (let [{: x : y} coords]
-    (if (= (color-at x y self.state.board) self.state.current-turn)
-        (do
-         (set self.state.board (remove-stone x y self.state.board))
-         (tset self :army (army-at x y self.state.current-turn self.state.board)))
-        false)))
+    (let [{: x : y} coords]
+      (if (= (color-at x y self.state.board) self.state.current-turn)
+          (do
+           (tset self.state :board (remove-stone x y self.state.board))
+           (tset self.state :army (army-at x y self.state.current-turn self.state.board)))
+          false)))
 
 (fn onbefore-place [self _event _from _to coords]
-  (let [{: x : y } coords
-        board (or (. self :army) self.state.board)]
-    (if (is-possible-add x y self.state.current-turn board)
-        (do
-         (set self.state.board (place-stone x y self.state.current-turn self.state.board))
-         (tset self :army nil))
-        false)))
+    (let [{: x : y } coords
+          board (or self.state.army self.state.board)]
+      (if (is-possible-add x y self.state.current-turn board)
+          (do
+           (tset self.state :board (place-stone x y self.state.current-turn self.state.board))
+           (tset self :army nil))
+          false)))
 
 (fn onbefore-push [self _event _from _to coords]
-  (let [{: x : y : direction} coords]
-    (if (is-possible-push x y self.state.current-turn direction self.state.board)
-        (set self.state.board (push x y self.state.current-turn direction self.state.board))
-        false)))
+    (let [{: x : y : direction} coords]
+      (if (is-possible-push x y self.state.current-turn direction self.state.board)
+          (tset self.state :board (push x y self.state.current-turn direction self.state.board))
+          false)))
 
 (fn onenter-game-over [self event from to winner]
-  (print winner))
+    (print winner))
 
 ;; output is the game
 (fn init-board []
@@ -241,16 +243,16 @@
                              :current-turn col.BLACK
                              :current-turn-action-counter 2
                              :board {1 {}
-                                     2 {2 col.WHITE 3 col.WHITE}
-                                     3 {2 col.WHITE 3 col.WHITE}
-                                     4 {}
-                                     5 {}
-                                     5 {}
-                                     7 {7 col.BLACK 8 col.BLACK}
-                                     8 {7 col.BLACK 8 col.BLACK}
-                                     9 {}}}
-                     ;; :functs {:free-stones-count (lambda [color]
-                     ;;                               (free-stones-count color self.state.state.board))}
+                                       2 {2 col.WHITE 3 col.WHITE}
+                                       3 {2 col.WHITE 3 col.WHITE}
+                                       4 {}
+                                       5 {}
+                                       5 {}
+                                       7 {7 col.BLACK 8 col.BLACK}
+                                       8 {7 col.BLACK 8 col.BLACK}
+                                       9 {}}}
+                            ;; :functs {:free-stones-count (lambda [color]
+                            ;;                               (free-stones-count color self.state.state.board))}
                      :initial "selecting-action"
                      :events [;; Move
                               {:name "move" :from "selecting-action" :to "picking-first-stone"}

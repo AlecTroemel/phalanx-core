@@ -25,7 +25,7 @@
            dir.LEFT (tset cursor :x (- cursor.x 1))
            dir.UP (tset cursor :y (- cursor.y 1))
            dir.DOWN (tset cursor :y (+ cursor.y 1))
-           "x" (: fms event)))
+           "x" (: fms event cursor)))
 
 (fn direction-handler [key]
     (match key
@@ -66,7 +66,6 @@
            (gfx.line 20 j 180 j)    ;; x lines
            (gfx.line j 20 j 180)))  ;; y lines
     ;; the stones currently on the board
-    (print (inspect fms))
     (each [x line (pairs fms.state.board)]
           (each [y color (pairs line)]
                 (gfx.circle color (* x 20) (* y 20) 9)))
