@@ -19,7 +19,7 @@
                         (+ acc (lume.count (lume.filter row nil) #(= $1 color))))
                       0)))
 
-(fn color-at [x y stone-map] (-?> stone-map (. x) (. y)))
+(fn color-at [x y board] (-?> board (. x) (. y)))
 
 (fn color-other [color]
     (match color
@@ -27,9 +27,9 @@
            col.BLACK col.WHITE
            _ nil))
 
-(fn foreach-spot [stone-map iteratee]
+(fn foreach-spot [board iteratee]
     "call func(color, x,y) for each location on the stone map"
-    (each [x line (pairs stone-map)]
+    (each [x line (pairs board)]
           (each [y color (pairs line)]
                 (iteratee color x y))))
 
@@ -41,34 +41,34 @@
          (not (and (= x 1) (= y 1)))   ;; black temple
          (not (and (= x 9) (= y 9))))) ;; white temple
 
-(fn find-neighbors [x y color stone-map]
+(fn find-neighbors [x y color board]
     "return the orthogonal neighbors which are the desired color. passing nil for color will find open neighbors"
     (let [neighbors [{ :x (+ x 1) :y y}
                       { :x (- x 1) :y y}
                      { :x x :y (+ y 1)}
                      { :x x :y (- y 1)}]]
       (lume.filter neighbors #(and
-                               (= color (color-at (. $1 "x") (. $1 "y") stone-map))
+                               (= color (color-at (. $1 "x") (. $1 "y") board))
                                (in-bounds (. $1 "x")  (. $1 "y") )))))
 
-(fn possible-adds [color stone-map]
+(fn possible-adds [color board]
     "possible locations for the add action for a color on a map"
     (local moves [])
-    (foreach-spot stone-map
+    (foreach-spot board
                   #(when (= $1 color)
-                    (each [i spot (pairs (find-neighbors $2 $3 nil stone-map))]
+                    (each [i spot (pairs (find-neighbors $2 $3 nil board))]
                      (table.insert moves spot))))
     (lume.unique moves))
 
-(fn is-possible-add [x y color stone-map]
-    (lume.any (possible-adds color stone-map)
+(fn is-possible-add [x y color board]
+    (lume.any (possible-adds color board)
               #(and (= (. $1 :x) x)
                 (= (. $1 :y) y))))
 
-(fn army-at [x y color stone-map]
+(fn army-at [x y color board]
     "find all connected pieces (an army) for a color starting at a position, returns a board"
     (fn army-tail [x y seen]
-        (each [i spot (pairs (find-neighbors x y color stone-map))]
+        (each [i spot (pairs (find-neighbors x y color board))]
               (when (~= color (color-at spot.x spot.y seen))
                 (tset (. seen spot.x) spot.y color)
                 (lume.merge seen (army-tail spot.x spot.y seen))))
@@ -91,30 +91,30 @@
            dir.UP (values #$1 #(- $1 1))
            dir.DOWN (values #$1 #(+ $1 1))))
 
-(fn get-starting-position [x y color direction stone-map]
+(fn get-starting-position [x y color direction board]
     (let [opponate-color (color-other color)
                          (x-iter y-iter) (direction-iters (opposite direction))] ;; NOTE: we need to look backwords
       (fn get-starting-position-tail [x y]
-          (match (color-at (x-iter x) (y-iter y) stone-map)
+          (match (color-at (x-iter x) (y-iter y) board)
                  nil (values x y)
                  opponate-color (values x y)
                  color (get-starting-position-tail (x-iter x) (y-iter y))))
       (get-starting-position-tail x y)))
 
-(fn is-possible-push [start-x start-y color direction stone-map]
+(fn is-possible-push [start-x start-y color direction board]
     "check if pushing a line starting from a point for a color in a direction is valid"
-    (let [(start-x start-y) (get-starting-position start-x start-y color direction stone-map)
+    (let [(start-x start-y) (get-starting-position start-x start-y color direction board)
           (x-iter y-iter) (direction-iters direction)
           opponate-color (color-other color)]
       (fn is-possible-push-tail [x y ally-count opponate-count]
-          (match (color-at x y stone-map)
+          (match (color-at x y board)
                  color (if (> opponate-count 0)
                            false ;; you've blocked yourself
                            (is-possible-push-tail (x-iter x) (y-iter y) (+ 1 ally-count) opponate-count))
                  opponate-color (is-possible-push-tail (x-iter x) (y-iter y) ally-count (+ 1 opponate-count))
                  nil (and (> opponate-count 0) ;; must actually touch opponate
                           (>  ally-count opponate-count))))  ;; must be longer then opponate
-      (if (= color (color-at start-x start-y stone-map))
+      (if (= color (color-at start-x start-y board))
           (is-possible-push-tail start-x start-y 0 0)
           false))) ;; must start on your own color
 
