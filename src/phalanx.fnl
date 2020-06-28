@@ -121,6 +121,7 @@
 (fn place-stone [x y color old-board]
     "return a new board with a stone added given coords"
     (let [new-board (lume.deepclone old-board)]
+      (when (= (. new-board x) nil) (tset new-board x []))
       (tset (. new-board x) y color) new-board))
 
 (fn remove-stone [x y old-board]
