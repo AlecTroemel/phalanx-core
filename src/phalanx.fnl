@@ -142,37 +142,29 @@
       (push-line-tail start-x start-y nil)
       new-board))
 
-;; XXX nothing after this has been ported to the new board format XXX
 (fn remove-dead-stones [old-board]
     "return a board with all dead/isolated stones removed"
-    (local new-board (lume.deepclone old-board))
-    (foreach-spot old-board
-                  (lambda [color x y]
-                    (when (or (= 0 (# (find-neighbors x y color old-board)))
-                              (not (in-bounds x y)))
-                      (tset (. new-board x) y nil))))
-    new-board)
+    (lume.reject old-board (lambda [spot]
+                              (or (= 0 (# (find-neighbors spot.x spot.y spot.color old-board)))
+                                  (not (in-bounds spot.x spot.y))))))
 
 (fn neighbor-of [x y x-goal y-goal]
     "check if (x,y) is a neighbor of (x-goal, y-goal)"
     (let [neighbors [{ :x (+ x 1) :y y}
-                      { :x (- x 1) :y y}
+                     { :x (- x 1) :y y}
                      { :x x :y (+ y 1)}
                      { :x x :y (- y 1)}]]
       (lume.any neighbors (lambda [spot]
-                            (and (= x-goal (. spot :x))
-                                 (= y-goal (. spot :y)))))))
+                            (and (= spot.x x-goal)
+                                 (= spot.y y-goal))))))
 
 (fn touching-temple [color board]
     "check if color is touching the temple"
     (let [x-goal (if (= color col.BLACK) 1 9)
           y-goal (if (= color col.BLACK) 1 9)]
-      (var touching false)
-      (foreach-spot board (lambda [c x y]
-                            (when (and (= c color)
-                                       (neighbor-of x y x-goal y-goal))
-                              (set touching true))))
-      touching))
+      (lume.any board (lambda [spot]
+                        (and (= spot.color color)
+                             (neighbor-of spot.x spot.y x-goal y-goal))))))
 
 (fn game-over [board]
     "return color that has won the game, else false"
@@ -185,7 +177,6 @@
      (touching-temple col.WHITE board) col.WHITE
      ;; game is STILL ON
      false))
-
 
 ;; ------------------------------------------------------|
 ;; |       Finite state machine & Global State           |
