@@ -4,6 +4,7 @@
 ;; ------------------------------------------------------|
 (include :lib.gfx)
 (include :lib.globals)
+(global lume (require :lib.lume))
 (global inspect (require :lib.inspect))
 
 (global col globals.col)
@@ -66,9 +67,8 @@
            (gfx.line 20 j 180 j)    ;; x lines
            (gfx.line j 20 j 180)))  ;; y lines
     ;; the stones currently on the board
-    (each [x line (pairs fms.state.board)]
-          (each [y color (pairs line)]
-                (gfx.circle color (* x 20) (* y 20) 9)))
+    (lume.each fms.state.board
+               (lambda [spot] (gfx.circle spot.color (* spot.x 20) (* spot.y 20) 9)))
     ;; temples
     (gfx.rect col.BLACK 10 10 20 20)
     (gfx.rect col.WHITE 170 170 20 20))

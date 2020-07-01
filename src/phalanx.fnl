@@ -21,9 +21,17 @@
     "the number of remain stones (max of 9) looking at the stone-map"
     (- 9 (lume.count (only color board))))
 
+(fn stone-at [x y board]
+    "returns  (values stone board-index)"
+    (lume.match board (lambda [stone]
+                        (and (= stone.x x)
+                             (= stone.y y)))))
+
 (fn color-at [x y board]
     "the color at the coords"
-    (. (lume.match board #(and (= (. $1 :x) x) (= (. $1 :y) y))) :color))
+    (match (pick-values 1 (stone-at x y board))
+           nil nil
+           spot spot.color))
 
 (fn other [color]
     "black to white and white to black"
@@ -32,13 +40,14 @@
            col.BLACK col.WHITE
            _ nil))
 
-(fn in-bounds [x y]
-    (and (> x 0)
-         (<= x globals.map-size)
-         (> y 0)
-         (<= y globals.map-size)
-         (not (and (= x 1) (= y 1)))   ;; exclude black temple
-         (not (and (= x 9) (= y 9))))) ;; exclude white temple
+(fn in-bounds [coord]
+    (let [{: x : y} coord]
+      (and (> x 0)
+           (<= x globals.map-size)
+           (> y 0)
+           (<= y globals.map-size)
+           (not (and (= x 1) (= y 1)))    ;; exclude black temple
+           (not (and (= x 9) (= y 9)))))) ;; exclude white temple
 
 (fn find-neighbors [x y color board]
     "return the orthogonal neighbors which are the desired color. passing nil for color will find open neighbors"
@@ -46,26 +55,26 @@
                      { :x (- x 1) :y y}
                      { :x x :y (+ y 1)}
                      { :x x :y (- y 1)}]]
-      (lume.filter neighbors #(and
-                               (= color (color-at (. $1 :x) (. $1 :y) board))
-                               (in-bounds (. $1 "x")  (. $1 "y"))))))
+      (lume.filter neighbors
+                   (lambda [neighbor]
+                     (and (= color (color-at neighbor.x neighbor.y board))
+                          (in-bounds neighbor))))))
 
 (fn possible-adds [color board]
     "possible locations for the add action for a color on a map"
     (local moves [])
     (lume.each
      (only color board)
-     #((let [{: x : y} $1]
-         (each [i spot (pairs (find-neighbors x y nil board))]
-               (table.insert moves spot)))))
+     (lambda [stone]
+       (lume.each (find-neighbors stone.x stone.y nil board)
+                  #(table.insert moves $1))))
     (lume.unique moves))
 
 (fn is-possible-add [x y color board]
     "check if the x y coords and a color is a valid add move"
     (lume.any (possible-adds color board)
-              #(and
-                (= (. $1 :x) x)
-                (= (. $1 :y) y))))
+              (lambda [stone]
+                (and (= stone.x x) (= stone.y y)))))
 
 (fn army-at [x y color board]
     "find all connected pieces (an army) for a color starting at a position"
@@ -121,7 +130,7 @@
 (fn place-stone [x y color old-board]
     "return a new board with a stone added given coords"
     (let [new-board (lume.deepclone old-board)]
-      (table.insert new-table {: x : y : color}) new-board))
+      (table.insert new-board {: x : y : color}) new-board))
 
 (fn remove-stone [x y old-board]
     "return a new board with a stone removed at given coords"
@@ -134,19 +143,19 @@
     (let [new-board (lume.deepclone old-board)
                     (start-x start-y) (get-starting-position x y color direction new-board)
                     (x-iter y-iter) (direction-iters direction)]
-      (fn push-line-tail [x y prev-color]
-          (let [next-color (color-at x y new-board)]
-            (table.insert new-table {: x : y :color prev-color})
-            (when (~= nil next-color)
-              (push-line-tail (x-iter x) (y-iter y) next-color))))
-      (push-line-tail start-x start-y nil)
-      new-board))
+      (fn push-line-tail [x y board]
+          (match (stone-at x y old-board)
+                 (next-stone index) (do
+                                     (tset new-board index {:x (x-iter x) :y (y-iter y) :color next-stone.color})
+                                     (when (~= nil next-stone.color)
+                                       (push-line-tail (x-iter x) (y-iter y) next-stone.color)))))
+      (push-line-tail start-x start-y) new-board))
 
 (fn remove-dead-stones [old-board]
     "return a board with all dead/isolated stones removed"
-    (lume.reject old-board (lambda [spot]
-                              (or (= 0 (# (find-neighbors spot.x spot.y spot.color old-board)))
-                                  (not (in-bounds spot.x spot.y))))))
+    (lume.reject old-board (lambda [stone]
+                             (or (= 0 (# (find-neighbors stone.x stone.y stone.color old-board)))
+                                 (not (in-bounds stone))))))
 
 (fn neighbor-of [x y x-goal y-goal]
     "check if (x,y) is a neighbor of (x-goal, y-goal)"
@@ -239,6 +248,11 @@
                                      {:x 2 :y 3 :color col.WHITE}
                                      {:x 3 :y 2 :color col.WHITE}
                                      {:x 3 :y 3 :color col.WHITE}
+
+                                     {:x 3 :y 4 :color col.BLACK}
+                                     {:x 3 :y 5 :color col.BLACK}
+                                     {:x 3 :y 6 :color col.BLACK}
+
                                      {:x 7 :y 7 :color col.BLACK}
                                      {:x 7 :y 8 :color col.BLACK}
                                      {:x 8 :y 7 :color col.BLACK}
