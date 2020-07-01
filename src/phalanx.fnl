@@ -248,11 +248,6 @@
                                      {:x 2 :y 3 :color col.WHITE}
                                      {:x 3 :y 2 :color col.WHITE}
                                      {:x 3 :y 3 :color col.WHITE}
-
-                                     {:x 3 :y 4 :color col.BLACK}
-                                     {:x 3 :y 5 :color col.BLACK}
-                                     {:x 3 :y 6 :color col.BLACK}
-
                                      {:x 7 :y 7 :color col.BLACK}
                                      {:x 7 :y 8 :color col.BLACK}
                                      {:x 8 :y 7 :color col.BLACK}
