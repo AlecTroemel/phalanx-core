@@ -216,6 +216,7 @@
     (tset self.state :current-turn-action-counter (+ self.state.current-turn-action-counter 1)))
 
 (fn onenter-selecting-action [self]
+    (tset self.state :army nil)
     (let [dead-stones (dead-stones self.state.board)]
       (when (> (# dead-stones) 0) (self:clean dead-stones)))
     (when (= self.state.current-turn-action-counter 0)
@@ -252,23 +253,29 @@
 
 (fn onbefore-pick [self _event _from _to x y]
     (if (= (color-at x y self.state.board) self.state.current-turn)
-        (do
-         (tset self.state :board (remove-stone x y self.state.board))
-         (tset self.state :army (army-at x y self.state.current-turn self.state.board)))
+        (tset self.state :board (remove-stone x y self.state.board))
         false))
 
 (fn onundo-pick [self _event _from _to x y]
-    (tset self.state :board (place-stone x y self.state.current-turn self.state.board))
-    ;; (tset self.state :army (army-at x y self.state.current-turn self.state.board)))
-    )
+    (tset self.state :board (place-stone x y self.state.current-turn self.state.board)))
+
+(fn onenter-placing-stone [self _event _from _to x y]
+    (when (= (type x) "number")
+      (self:setarmy (army-at x y self.state.current-turn self.state.board))))
 
 (fn onbefore-place [self _event _from _to x y]
     (let [board (or self.state.army self.state.board)]
       (if (is-possible-add x y self.state.current-turn board)
-          (do
-           (tset self.state :board (place-stone x y self.state.current-turn self.state.board))
-           (tset self :army nil))
+          (tset self.state :board (place-stone x y self.state.current-turn self.state.board))
           false)))
+
+(fn onbefore-setarmy [self _event _from _to army]
+    (tset self.state :army army))
+
+(fn onundo-setarmy [self _event _from _to army]
+    "an intermediate transition to revive past army state from the history stack, undoes the next transition as well"
+    (tset self.state :army army)
+    (self:undoTransition))
 
 (fn onundo-place [self _event _from _to x y]
     (tset self.state :board (remove-stone x y self.state.board)))
@@ -312,7 +319,10 @@
                               ;; Gameover
                               {:name "endgame" :from "selecting-action" :to "game-over"}
                               ;; remove dead stones (is an action so they are stored in history)
-                              {:name "clean" :from "selecting-action" :to "selecting-action"}]
+                              {:name "clean" :from "selecting-action" :to "selecting-action"}
+                              ;; store army changes in history
+                              {:name "setarmy" :from "placing-first-stone" :to "placing-first-stone"}
+                              {:name "setarmy" :from "placing-second-stone" :to "placing-second-stone"}]
                      :callbacks {: onenter-selecting-action
                                  : onbefore-clean  : onundo-clean
                                  : onbefore-add    : onundo-add
@@ -321,6 +331,9 @@
                                  : onbefore-place  : onundo-place
                                  : onbefore-lineup
                                  : onbefore-push
+                                 :onenter-placing-first-stone onenter-placing-stone
+                                 :onenter-placing-second-stone onenter-placing-stone
+                                 : onbefore-setarmy : onundo-setarmy
                                  : onenter-game-over}}))
 
 {: init-board}
