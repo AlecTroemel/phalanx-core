@@ -78,13 +78,14 @@
 
 (fn army-at [x y color board]
     "find all connected pieces (an army) for a color starting at a position"
-    (fn army-tail [x y seen]
-        (each [i spot (pairs (find-neighbors x y color board))]
-              (when (~= color (color-at spot.x spot.y seen))
-                (table.insert seen {:x spot.x :y spot.y :color color})
-                (lume.merge seen (army-tail spot.x spot.y seen))))
-        seen)
-    (army-tail x y board))
+    (fn army-tail [x y seen-stones]
+        (lume.each (find-neighbors x y color board)
+                   (lambda [stone]
+                     (when (not (stone-at stone.x stone.y seen-stones))
+                       (table.insert seen-stones {:x stone.x :y stone.y :color color})
+                       (lume.concat seen-stones (army-tail stone.x stone.y seen-stones)))))
+        seen-stones)
+    (army-tail x y []))
 
 (fn opposite [direction]
     (match direction
