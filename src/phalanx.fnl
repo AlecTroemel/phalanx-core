@@ -195,6 +195,9 @@
 (fn take-an-action [self]
     (tset self.state :current-turn-action-counter (- self.state.current-turn-action-counter 1)))
 
+(fn give-an-action [self]
+    (tset self.state :current-turn-action-counter (+ self.state.current-turn-action-counter 1)))
+
 (fn onenter-selecting-action [self]
     (tset self.state :board (remove-dead-stones self.state.board))
     (when (= self.state.current-turn-action-counter 0)
@@ -210,8 +213,14 @@
         (take-an-action self)
         false))
 
+(fn onundo-add [self]
+    (give-an-action self))
+
 (fn onbefore-move [self _event from]
     (when (= from :selecting-action) (take-an-action self)))
+
+(fn onundo-move [self]
+    (give-an-action self))
 
 (fn onbefore-pick [self _event _from _to coords]
     (let [{: x : y} coords]
@@ -280,13 +289,13 @@
                               ;; Gameover
                               {:name "endgame" :from "selecting-action" :to "game-over"}]
                      :callbacks {: onenter-selecting-action
-                                 : onbefore-add
-                                 : onbefore-move
-                                 : onbefore-pick
-                                 : onundo-pick
-                                 : onbefore-place
+                                 : onenter-game-over
+                                 : onbefore-add : onundo-add
+                                 : onbefore-move : onundo-move
+                                 : onbefore-pick : onundo-pick
+                                 : onbefore-place : onundo-place
                                  : onbefore-lineup
                                  : onbefore-push
-                                 : onenter-game-over}}))
+                                   }}))
 
 {: init-board}
