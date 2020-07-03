@@ -173,6 +173,21 @@
       (push-line-tail start-x start-y)
       (lume.unique new-board)))
 
+(fn undo-push [x y color direction old-board]
+    "return a new board after a push action at the given coords and direction has been undone. This requires some special attention/tweaks"
+    (let [new-board (lume.deepclone old-board)
+                    (x-iter y-iter) (direction-iters direction)
+                    (start-x start-y) (get-starting-position (x-iter x) (y-iter y) color direction new-board)
+                    (opp-x-iter opp-y-iter) (direction-iters (opposite direction))]
+      (fn pushnt-line-tail [x y board]
+          (match (stone-at x y old-board)
+                 (next-stone index) (do
+                                     (tset new-board index {:x (opp-x-iter x) :y (opp-y-iter y) :color next-stone.color})
+                                     (when (~= nil next-stone.color)
+                                       (pushnt-line-tail (x-iter x) (y-iter y) next-stone.color)))))
+      (pushnt-line-tail start-x start-y)
+      (lume.unique new-board)))
+
 
 (fn neighbor-of [x y x-goal y-goal]
     "check if (x,y) is a neighbor of (x-goal, y-goal)"
@@ -281,11 +296,15 @@
     (tset self.state :board (remove-stone x y self.state.board)))
 
 (fn onbefore-lineup [self] (take-an-action self))
+(fn onundo-lineup [self] (give-an-action self))
 
 (fn onbefore-push [self _event _from _to x y direction]
     (if (is-possible-push x y self.state.current-turn direction self.state.board)
         (tset self.state :board (push x y self.state.current-turn direction self.state.board))
         false))
+
+(fn onundo-push [self _even _from _to x y direction]
+    (tset self.state :board (undo-push x y self.state.current-turn direction self.state.board)))
 
 (fn onenter-game-over [self event from to winner]
     (print winner))
@@ -324,16 +343,16 @@
                               {:name "setarmy" :from "placing-first-stone" :to "placing-first-stone"}
                               {:name "setarmy" :from "placing-second-stone" :to "placing-second-stone"}]
                      :callbacks {: onenter-selecting-action
-                                 : onbefore-clean  : onundo-clean
-                                 : onbefore-add    : onundo-add
-                                 : onbefore-move   : onundo-move
-                                 : onbefore-pick   : onundo-pick
-                                 : onbefore-place  : onundo-place
-                                 : onbefore-lineup
-                                 : onbefore-push
+                                 : onbefore-clean   : onundo-clean
+                                 : onbefore-add     : onundo-add
+                                 : onbefore-move    : onundo-move
+                                 : onbefore-pick    : onundo-pick
+                                 : onbefore-place   : onundo-place
+                                 : onbefore-lineup  : onundo-lineup
+                                 : onbefore-push    : onundo-push
+                                 : onbefore-setarmy : onundo-setarmy
                                  :onenter-placing-first-stone onenter-placing-stone
                                  :onenter-placing-second-stone onenter-placing-stone
-                                 : onbefore-setarmy : onundo-setarmy
                                  : onenter-game-over}}))
 
 {: init-board}

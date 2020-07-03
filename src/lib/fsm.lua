@@ -156,8 +156,8 @@ function machine:undoTransition()
   if #self.history > 0 then
     local params = self.history[#self.history]
     table.remove(self.history)
-    call_handler(self["onundo-" .. params[2]], params)
     self.current = params[3]
+    call_handler(self["onundo-" .. params[2]], params)
   end
 end
 
