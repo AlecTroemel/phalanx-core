@@ -153,14 +153,15 @@ function machine:cancelTransition(event)
 end
 
 function machine:undoTransition()
+
   if #self.history > 0 then
     local params = self.history[#self.history]
     table.remove(self.history)
 
-    local inspect = require('lib.inspect')
-    -- params[1] = self
-    local name = params[2]
-    local from = params[3]
+    local name = params[1]
+    local from = params[2]
+
+    table.insert(params, 1, self)
     call_handler(self["onundo-" .. name], params)
     self.current = from
   end
