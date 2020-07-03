@@ -78,13 +78,14 @@
 
 (fn army-at [x y color board]
     "find all connected pieces (an army) for a color starting at a position"
-    (fn army-tail [x y seen]
-        (each [i spot (pairs (find-neighbors x y color board))]
-              (when (~= color (color-at spot.x spot.y seen))
-                (table.insert seen {:x spot.x :y spot.y :color color})
-                (lume.merge seen (army-tail spot.x spot.y seen))))
-        seen)
-    (army-tail x y board))
+    (fn army-tail [x y seen-stones]
+        (lume.each (find-neighbors x y color board)
+                   (lambda [stone]
+                     (when (not (stone-at stone.x stone.y seen-stones))
+                       (table.insert seen-stones {:x stone.x :y stone.y :color color})
+                       (lume.concat seen-stones (army-tail stone.x stone.y seen-stones)))))
+        seen-stones)
+    (army-tail x y []))
 
 (fn opposite [direction]
     (match direction
@@ -127,16 +128,36 @@
           (is-possible-push-tail start-x start-y 0 0)
           false))) ;; must start on your own color
 
+(fn dead-stones [board]
+    "list of all the dead/isolated stones on the board"
+    (lume.filter board (lambda [stone]
+                         (or (= 0 (# (find-neighbors stone.x stone.y stone.color board)))
+                             (not (in-bounds stone))))))
+
 (fn place-stone [x y color old-board]
     "return a new board with a stone added given coords"
     (let [new-board (lume.deepclone old-board)]
-      (table.insert new-board {: x : y : color}) new-board))
+      (table.insert new-board {: x : y : color})
+      (lume.unique new-board)))
+
+(fn place-stones [stones old-board]
+    (let [new-board (lume.deepclone old-board)]
+      (lume.each stones #(table.insert new-board $1))
+      (lume.unique new-board)))
 
 (fn remove-stone [x y old-board]
     "return a new board with a stone removed at given coords"
     (lume.reject old-board (lambda [spot]
                              (and (= x spot.x)
                                   (= y spot.y)))))
+
+(fn remove-stones [stones old-board]
+    "return a new board with all the stones given removed"
+    (lume.unique (lume.reject old-board
+                              (lambda [spot]
+                                (lume.any stones (lambda [dspot]
+                                                   (and (= dspot.x spot.x)
+                                                        (= dspot.y spot.y))))))))
 
 (fn push [x y color direction old-board]
     "return a new board after a push action at the given coords and direction"
@@ -149,13 +170,24 @@
                                      (tset new-board index {:x (x-iter x) :y (y-iter y) :color next-stone.color})
                                      (when (~= nil next-stone.color)
                                        (push-line-tail (x-iter x) (y-iter y) next-stone.color)))))
-      (push-line-tail start-x start-y) new-board))
+      (push-line-tail start-x start-y)
+      (lume.unique new-board)))
 
-(fn remove-dead-stones [old-board]
-    "return a board with all dead/isolated stones removed"
-    (lume.reject old-board (lambda [stone]
-                             (or (= 0 (# (find-neighbors stone.x stone.y stone.color old-board)))
-                                 (not (in-bounds stone))))))
+(fn undo-push [x y color direction old-board]
+    "return a new board after a push action at the given coords and direction has been undone. This requires some special attention/tweaks"
+    (let [new-board (lume.deepclone old-board)
+                    (x-iter y-iter) (direction-iters direction)
+                    (start-x start-y) (get-starting-position (x-iter x) (y-iter y) color direction new-board)
+                    (opp-x-iter opp-y-iter) (direction-iters (opposite direction))]
+      (fn pushnt-line-tail [x y board]
+          (match (stone-at x y old-board)
+                 (next-stone index) (do
+                                     (tset new-board index {:x (opp-x-iter x) :y (opp-y-iter y) :color next-stone.color})
+                                     (when (~= nil next-stone.color)
+                                       (pushnt-line-tail (x-iter x) (y-iter y) next-stone.color)))))
+      (pushnt-line-tail start-x start-y)
+      (lume.unique new-board)))
+
 
 (fn neighbor-of [x y x-goal y-goal]
     "check if (x,y) is a neighbor of (x-goal, y-goal)"
@@ -195,46 +227,84 @@
 (fn take-an-action [self]
     (tset self.state :current-turn-action-counter (- self.state.current-turn-action-counter 1)))
 
+(fn give-an-action [self]
+    (tset self.state :current-turn-action-counter (+ self.state.current-turn-action-counter 1)))
+
 (fn onenter-selecting-action [self]
-    (tset self.state :board (remove-dead-stones self.state.board))
+    (tset self.state :army nil)
+    (let [dead-stones (dead-stones self.state.board)]
+      (when (> (# dead-stones) 0) (self:clean dead-stones)))
     (when (= self.state.current-turn-action-counter 0)
       (tset self.state :current-turn (other self.state.current-turn))
-      (tset self.state :current-turn-action-counter 2))
+      (tset self.state :current-turn-action-counter 2)
+      (self:clearHistory))
     ;; TODO: this is broken
     ;; (let [winner (game-over self.state.board)]
     ;;   (when winner (self.endgame winner)))
     )
+
+(fn onbefore-clean [self _event _from _to dead-stones]
+    "an intermediate transition to put the removed stones into the history stack"
+    (tset self.state :board (remove-stones dead-stones self.state.board)))
+
+(fn onundo-clean [self _event _from _to reborn-stones]
+    "an intermediate transition to revive dead stones from the history stack, undoes the next transition as well"
+    (tset self.state :board (place-stones reborn-stones self.state.board))
+    (self:undoTransition))
 
 (fn onbefore-add [self]
     (if (> (free-stones-count self.state.current-turn self.state.board) 0)
         (take-an-action self)
         false))
 
+(fn onundo-add [self]
+    (give-an-action self))
+
 (fn onbefore-move [self _event from]
     (when (= from :selecting-action) (take-an-action self)))
 
-(fn onbefore-pick [self _event _from _to coords]
-    (let [{: x : y} coords]
-      (if (= (color-at x y self.state.board) self.state.current-turn)
-          (do
-           (tset self.state :board (remove-stone x y self.state.board))
-           (tset self.state :army (army-at x y self.state.current-turn self.state.board)))
-          false)))
+(fn onundo-move [self]
+    (give-an-action self))
 
-(fn onbefore-place [self _event _from _to coords]
-    (let [{: x : y } coords
-          board (or self.state.army self.state.board)]
+(fn onbefore-pick [self _event _from _to x y]
+    (if (= (color-at x y self.state.board) self.state.current-turn)
+        (tset self.state :board (remove-stone x y self.state.board))
+        false))
+
+(fn onundo-pick [self _event _from _to x y]
+    (tset self.state :board (place-stone x y self.state.current-turn self.state.board)))
+
+(fn onenter-placing-stone [self _event _from _to x y]
+    (when (= (type x) "number")
+      (self:setarmy (army-at x y self.state.current-turn self.state.board))))
+
+(fn onbefore-place [self _event _from _to x y]
+    (let [board (or self.state.army self.state.board)]
       (if (is-possible-add x y self.state.current-turn board)
-          (do
-           (tset self.state :board (place-stone x y self.state.current-turn self.state.board))
-           (tset self :army nil))
+          (tset self.state :board (place-stone x y self.state.current-turn self.state.board))
           false)))
 
-(fn onbefore-push [self _event _from _to coords]
-    (let [{: x : y : direction} coords]
-      (if (is-possible-push x y self.state.current-turn direction self.state.board)
-          (tset self.state :board (push x y self.state.current-turn direction self.state.board))
-          false)))
+(fn onbefore-setarmy [self _event _from _to army]
+    (tset self.state :army army))
+
+(fn onundo-setarmy [self _event _from _to army]
+    "an intermediate transition to revive past army state from the history stack, undoes the next transition as well"
+    (tset self.state :army army)
+    (self:undoTransition))
+
+(fn onundo-place [self _event _from _to x y]
+    (tset self.state :board (remove-stone x y self.state.board)))
+
+(fn onbefore-lineup [self] (take-an-action self))
+(fn onundo-lineup [self] (give-an-action self))
+
+(fn onbefore-push [self _event _from _to x y direction]
+    (if (is-possible-push x y self.state.current-turn direction self.state.board)
+        (tset self.state :board (push x y self.state.current-turn direction self.state.board))
+        false))
+
+(fn onundo-push [self _even _from _to x y direction]
+    (tset self.state :board (undo-push x y self.state.current-turn direction self.state.board)))
 
 (fn onenter-game-over [self event from to winner]
     (print winner))
@@ -252,8 +322,6 @@
                                      {:x 7 :y 8 :color col.BLACK}
                                      {:x 8 :y 7 :color col.BLACK}
                                      {:x 8 :y 8 :color col.BLACK}]}
-                            ;; :functs {:free-stones-count (lambda [color]
-                            ;;                               (free-stones-count color self.state.state.board))}
                      :initial "selecting-action"
                      :events [;; Move
                               {:name "move" :from "selecting-action" :to "picking-first-stone"}
@@ -268,14 +336,23 @@
                               {:name "lineup" :from "selecting-action" :to "picking-push-line"}
                               {:name "push" :from "picking-push-line" :to "selecting-action"}
                               ;; Gameover
-                              {:name "endgame" :from "selecting-action" :to "game-over"}]
+                              {:name "endgame" :from "selecting-action" :to "game-over"}
+                              ;; remove dead stones (is an action so they are stored in history)
+                              {:name "clean" :from "selecting-action" :to "selecting-action"}
+                              ;; store army changes in history
+                              {:name "setarmy" :from "placing-first-stone" :to "placing-first-stone"}
+                              {:name "setarmy" :from "placing-second-stone" :to "placing-second-stone"}]
                      :callbacks {: onenter-selecting-action
-                                 : onbefore-add
-                                 : onbefore-move
-                                 : onbefore-pick
-                                 : onbefore-place
-                                 :onbefore-lineup take-an-action
-                                 : onbefore-push
+                                 : onbefore-clean   : onundo-clean
+                                 : onbefore-add     : onundo-add
+                                 : onbefore-move    : onundo-move
+                                 : onbefore-pick    : onundo-pick
+                                 : onbefore-place   : onundo-place
+                                 : onbefore-lineup  : onundo-lineup
+                                 : onbefore-push    : onundo-push
+                                 : onbefore-setarmy : onundo-setarmy
+                                 :onenter-placing-first-stone onenter-placing-stone
+                                 :onenter-placing-second-stone onenter-placing-stone
                                  : onenter-game-over}}))
 
 {: init-board}
