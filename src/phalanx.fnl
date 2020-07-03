@@ -202,7 +202,8 @@
     (tset self.state :board (remove-dead-stones self.state.board))
     (when (= self.state.current-turn-action-counter 0)
       (tset self.state :current-turn (other self.state.current-turn))
-      (tset self.state :current-turn-action-counter 2))
+      (tset self.state :current-turn-action-counter 2)
+      (self:clearHistory))
     ;; TODO: this is broken
     ;; (let [winner (game-over self.state.board)]
     ;;   (when winner (self.endgame winner)))
@@ -222,40 +223,35 @@
 (fn onundo-move [self]
     (give-an-action self))
 
-(fn onbefore-pick [self _event _from _to coords]
-    (let [{: x : y} coords]
-      (if (= (color-at x y self.state.board) self.state.current-turn)
-          (do
-           (tset self.state :board (remove-stone x y self.state.board))
-           (tset self.state :army (army-at x y self.state.current-turn self.state.board)))
-          false)))
+(fn onbefore-pick [self _event _from _to x y]
+    (if (= (color-at x y self.state.board) self.state.current-turn)
+        (do
+         (tset self.state :board (remove-stone x y self.state.board))
+         (tset self.state :army (army-at x y self.state.current-turn self.state.board)))
+        false))
 
-(fn onundo-pick [self event from to coords]
-    (let [{: x : y} coords]
-      (tset self.state :board (place-stone x y self.state.board))
-      ;; (tset self.state :army (army-at x y self.state.current-turn self.state.board)))
-      ))
+(fn onundo-pick [self _event _from _to x y]
+    (tset self.state :board (place-stone x y self.state.curent-turn self.state.board))
+    ;; (tset self.state :army (army-at x y self.state.current-turn self.state.board)))
+    )
 
-(fn onbefore-place [self _event _from _to coords]
-    (let [{: x : y } coords
-          board (or self.state.army self.state.board)]
+(fn onbefore-place [self _event _from _to x y]
+    (let [board (or self.state.army self.state.board)]
       (if (is-possible-add x y self.state.current-turn board)
           (do
            (tset self.state :board (place-stone x y self.state.current-turn self.state.board))
            (tset self :army nil))
           false)))
 
-(fn onundo-place [self event from to coords]
-    (let [{: x : y} coords]
-      (tset self.state :board (remove-stone x y self.state.board))))
+(fn onundo-place [self _event _from _to x y]
+    (tset self.state :board (remove-stone x y self.state.board)))
 
 (fn onbefore-lineup [self] (take-an-action self))
 
-(fn onbefore-push [self _event _from _to coords]
-    (let [{: x : y : direction} coords]
-      (if (is-possible-push x y self.state.current-turn direction self.state.board)
-          (tset self.state :board (push x y self.state.current-turn direction self.state.board))
-          false)))
+(fn onbefore-push [self _event _from _to x y direction]
+    (if (is-possible-push x y self.state.current-turn direction self.state.board)
+        (tset self.state :board (push x y self.state.current-turn direction self.state.board))
+        false))
 
 (fn onenter-game-over [self event from to winner]
     (print winner))

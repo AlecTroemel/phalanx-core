@@ -1,3 +1,5 @@
+local inspect = require 'lib.inspect'
+
 local machine = {}
 machine.__index = machine
 
@@ -21,7 +23,7 @@ local function create_transition(name)
 
       if not can then return false end
       self.currentTransitioningEvent = name
-      table.insert(self.history, { name, from, to, ...})
+      table.insert(self.history, params)
 
       local beforeReturn = call_handler(self["onbefore-" .. name], params)
       local leaveReturn = call_handler(self["onleave-" .. from], params)
@@ -158,13 +160,16 @@ function machine:undoTransition()
     local params = self.history[#self.history]
     table.remove(self.history)
 
-    local name = params[1]
-    local from = params[2]
+    local name = params[2]
+    local from = params[3]
 
-    table.insert(params, 1, self)
     call_handler(self["onundo-" .. name], params)
     self.current = from
   end
+end
+
+function machine:clearHistory()
+  self.history = {}
 end
 
 machine.NONE = NONE

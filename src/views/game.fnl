@@ -26,7 +26,7 @@
            dir.LEFT (tset cursor :x (- cursor.x 1))
            dir.UP (tset cursor :y (- cursor.y 1))
            dir.DOWN (tset cursor :y (+ cursor.y 1))
-           "x" (: fms event cursor)
+           "x" (: fms event cursor.x cursor.y cursor.direction)
            "b" (: fms :undoTransition)))
 
 (fn direction-handler [key]
@@ -41,7 +41,9 @@
            "selecting-action" (match key
                                      dir.RIGHT (tset cursor :action (+ cursor.action 1))
                                      dir.LEFT (tset cursor :action (- cursor.action 1))
-                                     "x" (: fms (match cursor.action 1 :add 2 :move 3 :lineup) cursor)
+                                     "x" (: fms
+                                            (match cursor.action 1 :add 2 :move 3 :lineup)
+                                            cursor.x cursor.y cursor.direction)
                                      "b" (: fms :undoTransition))
            ;; add action
            "placing-stone" (cursor-movement-handler key :place)
