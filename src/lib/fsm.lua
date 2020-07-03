@@ -1,5 +1,3 @@
-local inspect = require 'lib.inspect'
-
 local machine = {}
 machine.__index = machine
 
@@ -155,16 +153,11 @@ function machine:cancelTransition(event)
 end
 
 function machine:undoTransition()
-
   if #self.history > 0 then
     local params = self.history[#self.history]
     table.remove(self.history)
-
-    local name = params[2]
-    local from = params[3]
-
-    call_handler(self["onundo-" .. name], params)
-    self.current = from
+    call_handler(self["onundo-" .. params[2]], params)
+    self.current = params[3]
   end
 end
 
