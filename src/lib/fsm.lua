@@ -21,6 +21,7 @@ local function create_transition(name)
 
       if not can then return false end
       self.currentTransitioningEvent = name
+      table.insert(self.history, { name, from, to, ...})
 
       local beforeReturn = call_handler(self["onbefore-" .. name], params)
       local leaveReturn = call_handler(self["onleave-" .. from], params)
@@ -86,10 +87,10 @@ function machine.create(options)
   setmetatable(fsm, machine)
 
   fsm.state = options.state or {}
-  fsm.functs = options.functs or {}
   fsm.current = options.initial or 'none'
   fsm.asyncState = NONE
   fsm.events = {}
+  fsm.history = {}
 
   for _, event in ipairs(options.events or {}) do
     local name = event.name
@@ -148,6 +149,20 @@ function machine:cancelTransition(event)
   if self.currentTransitioningEvent == event then
     self.asyncState = NONE
     self.currentTransitioningEvent = nil
+  end
+end
+
+function machine:undoTransition()
+  if #self.history > 0 then
+    local params = self.history[#self.history]
+    table.remove(self.history)
+
+    local inspect = require('lib.inspect')
+    -- params[1] = self
+    local name = params[2]
+    local from = params[3]
+    call_handler(self["onundo-" .. name], params)
+    self.current = from
   end
 end
 

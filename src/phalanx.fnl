@@ -221,6 +221,12 @@
            (tset self.state :army (army-at x y self.state.current-turn self.state.board)))
           false)))
 
+(fn onundo-pick [self event from to coords]
+    (let [{: x : y} coords]
+      (tset self.state :board (place-stone x y self.state.board))
+      ;; (tset self.state :army (army-at x y self.state.current-turn self.state.board)))
+      ))
+
 (fn onbefore-place [self _event _from _to coords]
     (let [{: x : y } coords
           board (or self.state.army self.state.board)]
@@ -229,6 +235,12 @@
            (tset self.state :board (place-stone x y self.state.current-turn self.state.board))
            (tset self :army nil))
           false)))
+
+(fn onundo-place [self event from to coords]
+    (let [{: x : y} coords]
+      (tset self.state :board (remove-stone x y self.state.board))))
+
+(fn onbefore-lineup [self] (take-an-action self))
 
 (fn onbefore-push [self _event _from _to coords]
     (let [{: x : y : direction} coords]
@@ -252,8 +264,6 @@
                                      {:x 7 :y 8 :color col.BLACK}
                                      {:x 8 :y 7 :color col.BLACK}
                                      {:x 8 :y 8 :color col.BLACK}]}
-                            ;; :functs {:free-stones-count (lambda [color]
-                            ;;                               (free-stones-count color self.state.state.board))}
                      :initial "selecting-action"
                      :events [;; Move
                               {:name "move" :from "selecting-action" :to "picking-first-stone"}
@@ -273,8 +283,9 @@
                                  : onbefore-add
                                  : onbefore-move
                                  : onbefore-pick
+                                 : onundo-pick
                                  : onbefore-place
-                                 :onbefore-lineup take-an-action
+                                 : onbefore-lineup
                                  : onbefore-push
                                  : onenter-game-over}}))
 
