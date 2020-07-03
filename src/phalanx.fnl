@@ -127,16 +127,36 @@
           (is-possible-push-tail start-x start-y 0 0)
           false))) ;; must start on your own color
 
+(fn dead-stones [board]
+    "list of all the dead/isolated stones on the board"
+    (lume.filter board (lambda [stone]
+                         (or (= 0 (# (find-neighbors stone.x stone.y stone.color board)))
+                             (not (in-bounds stone))))))
+
 (fn place-stone [x y color old-board]
     "return a new board with a stone added given coords"
     (let [new-board (lume.deepclone old-board)]
-      (table.insert new-board {: x : y : color}) new-board))
+      (table.insert new-board {: x : y : color})
+      (lume.unique new-board)))
+
+(fn place-stones [stones old-board]
+    (let [new-board (lume.deepclone old-board)]
+      (lume.each stones #(table.insert new-board $1))
+      (lume.unique new-board)))
 
 (fn remove-stone [x y old-board]
     "return a new board with a stone removed at given coords"
     (lume.reject old-board (lambda [spot]
                              (and (= x spot.x)
                                   (= y spot.y)))))
+
+(fn remove-stones [stones old-board]
+    "return a new board with all the stones given removed"
+    (lume.unique (lume.reject old-board
+                              (lambda [spot]
+                                (lume.any stones (lambda [dspot]
+                                                   (and (= dspot.x spot.x)
+                                                        (= dspot.y spot.y))))))))
 
 (fn push [x y color direction old-board]
     "return a new board after a push action at the given coords and direction"
@@ -149,13 +169,9 @@
                                      (tset new-board index {:x (x-iter x) :y (y-iter y) :color next-stone.color})
                                      (when (~= nil next-stone.color)
                                        (push-line-tail (x-iter x) (y-iter y) next-stone.color)))))
-      (push-line-tail start-x start-y) new-board))
+      (push-line-tail start-x start-y)
+      (lume.unique new-board)))
 
-(fn remove-dead-stones [old-board]
-    "return a board with all dead/isolated stones removed"
-    (lume.reject old-board (lambda [stone]
-                             (or (= 0 (# (find-neighbors stone.x stone.y stone.color old-board)))
-                                 (not (in-bounds stone))))))
 
 (fn neighbor-of [x y x-goal y-goal]
     "check if (x,y) is a neighbor of (x-goal, y-goal)"
@@ -199,7 +215,8 @@
     (tset self.state :current-turn-action-counter (+ self.state.current-turn-action-counter 1)))
 
 (fn onenter-selecting-action [self]
-    (tset self.state :board (remove-dead-stones self.state.board))
+    (let [dead-stones (dead-stones self.state.board)]
+      (when (> (# dead-stones) 0) (self:clean dead-stones)))
     (when (= self.state.current-turn-action-counter 0)
       (tset self.state :current-turn (other self.state.current-turn))
       (tset self.state :current-turn-action-counter 2)
@@ -208,6 +225,15 @@
     ;; (let [winner (game-over self.state.board)]
     ;;   (when winner (self.endgame winner)))
     )
+
+(fn onbefore-clean [self _event _from _to dead-stones]
+    "an intermediate transition to put the removed stones into the history stack"
+    (tset self.state :board (remove-stones dead-stones self.state.board)))
+
+(fn onundo-clean [self _event _from _to reborn-stones]
+    "an intermediate transition to revive dead stones from the history stack, undoes the next transition as well"
+    (tset self.state :board (place-stones reborn-stones self.state.board))
+    (self:undoTransition))
 
 (fn onbefore-add [self]
     (if (> (free-stones-count self.state.current-turn self.state.board) 0)
@@ -231,7 +257,7 @@
         false))
 
 (fn onundo-pick [self _event _from _to x y]
-    (tset self.state :board (place-stone x y self.state.curent-turn self.state.board))
+    (tset self.state :board (place-stone x y self.state.current-turn self.state.board))
     ;; (tset self.state :army (army-at x y self.state.current-turn self.state.board)))
     )
 
@@ -283,15 +309,17 @@
                               {:name "lineup" :from "selecting-action" :to "picking-push-line"}
                               {:name "push" :from "picking-push-line" :to "selecting-action"}
                               ;; Gameover
-                              {:name "endgame" :from "selecting-action" :to "game-over"}]
+                              {:name "endgame" :from "selecting-action" :to "game-over"}
+                              ;; remove dead stones (is an action so they are stored in history)
+                              {:name "clean" :from "selecting-action" :to "selecting-action"}]
                      :callbacks {: onenter-selecting-action
-                                 : onenter-game-over
-                                 : onbefore-add : onundo-add
-                                 : onbefore-move : onundo-move
-                                 : onbefore-pick : onundo-pick
-                                 : onbefore-place : onundo-place
+                                 : onbefore-clean  : onundo-clean
+                                 : onbefore-add    : onundo-add
+                                 : onbefore-move   : onundo-move
+                                 : onbefore-pick   : onundo-pick
+                                 : onbefore-place  : onundo-place
                                  : onbefore-lineup
                                  : onbefore-push
-                                   }}))
+                                 : onenter-game-over}}))
 
 {: init-board}
