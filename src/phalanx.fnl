@@ -87,26 +87,24 @@
     "possible moves for the board, a move consists of 2 from->to locations
      [{event:'move' moves: [{x:1 y:1 x2:2 y2:3}, {x:1 y:1 x2:2 y2:3}]}]"
     (fn possible-moves-tail [color board]
-        (lume.each (only color board)
-               (lambda [from]
-                 (let [board (remove-stone from.x from.y board)]
-                   (-> board
-                       (possible-adds color)
-                       (lume.map
-                        (lambda [to]
-                          {:x from.x
-                           :y from.y
-                           :x2 to.x
-                           :y2 to.y})))))))
+        (lume.reduce (only color board)
+                     (lambda [acc from]
+                       (lume.each (possible-adds color (remove-stone from.x from.y board))
+                                  (lambda [to]
+                                    (lume.push acc {:x from.x :y from.y
+                                                    :x2 to.x :y2 to.y})))
+                       acc)))
     (var moves {})
     (lume.each (possible-moves-tail color board)
                (lambda [move1]
-                 (let [second-move-board (-?> (remove-stone move1.x move1.y color board)
+                 (let [second-move-board (->> board
+                                              (remove-stone move1.x move1.y)
                                               (place-stone move1.x2 move1.y2 color))]
                    (lume.each (possible-moves-tail color second-move-board)
                               (lambda [move2]
-                                (table.insert moves {:event "move"
-                                                     :moves {move1 move2}}))))))
+                                (table.insert moves
+                                              {:event "move"
+                                               :moves [move1 move2]}))))))
     moves)
 
 (fn opposite [direction]
@@ -281,10 +279,8 @@
       (tset self.state :current-turn (other self.state.current-turn))
       (tset self.state :current-turn-action-counter 2)
       (self:clearHistory))
-    ;; TODO: this is broken
-    ;; (let [winner (game-over self.state.board)]
-    ;;   (when winner (self.endgame winner)))
-    )
+    (let [winner (game-over self.state.board)]
+      (when winner (self:endgame winner))))
 
 (fn onbefore-clean [self _event _from _to dead-stones]
     "an intermediate transition to put the removed stones into the history stack"
