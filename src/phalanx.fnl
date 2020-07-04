@@ -61,13 +61,14 @@
                           (in-bounds neighbor))))))
 
 (fn possible-adds [?color board]
-    "possible locations for the add action for a color on a map"
+    "possible locations for the add action for a color on a map.
+     [{event:'add' x:2 y:3}]"
     (local moves [])
     (lume.each
      (if ?color (only ?color board) board)
      (lambda [stone]
        (lume.each (find-neighbors stone.x stone.y nil board)
-                  #(table.insert moves $1))))
+                  #(table.insert moves (lume.merge $1 {:event "add"})))))
     (lume.unique moves))
 
 (fn remove-stone [x y old-board]
@@ -76,15 +77,37 @@
                              (and (= x spot.x)
                                   (= y spot.y)))))
 
+(fn place-stone [x y color old-board]
+    "return a new board with a stone added given coords"
+    (let [new-board (lume.deepclone old-board)]
+      (table.insert new-board {: x : y : color})
+      (lume.unique new-board)))
+
 (fn possible-moves [color board]
-    (let [board (only color board)
-          moves {}]
-      (lume.each board
-                 (lambda [stone]
-                   (-> (remove-stone stone.x stone.y board)
-                       (possible-adds)
-                       (lume.concat moves))))
-      (lume.unique moves)))
+    "possible moves for the board, a move consists of 2 from->to locations
+     [{event:'move' moves: [{x:1 y:1 x2:2 y2:3}, {x:1 y:1 x2:2 y2:3}]}]"
+    (fn possible-moves-tail [color board]
+        (lume.each (only color board)
+               (lambda [from]
+                 (let [board (remove-stone from.x from.y board)]
+                   (-> board
+                       (possible-adds color)
+                       (lume.map
+                        (lambda [to]
+                          {:x from.x
+                           :y from.y
+                           :x2 to.x
+                           :y2 to.y})))))))
+    (var moves {})
+    (lume.each (possible-moves-tail color board)
+               (lambda [move1]
+                 (let [second-move-board (-?> (remove-stone move1.x move1.y color board)
+                                              (place-stone move1.x2 move1.y2 color))]
+                   (lume.each (possible-moves-tail color second-move-board)
+                              (lambda [move2]
+                                (table.insert moves {:event "move"
+                                                     :moves {move1 move2}}))))))
+    moves)
 
 (fn opposite [direction]
     (match direction
@@ -129,6 +152,8 @@
           false))) ;; must start on your own color
 
 (fn possible-pushes [color board]
+    "list of all possible pushes for a color on the board
+    [{event:'push' x:1 y:2 direction:'UP'}]"
     (let [board (only color board)
           pushes {}]
       (lume.each board
@@ -136,7 +161,7 @@
                    (lume.each [dir.LEFT dir.RIGHT dir.UP dir.DOWN]
                               (lambda [direction]
                                 (when (is-possible-push stone.x stone.y color direction board)
-                                  (table.insert pushes (lume.extend stone {:direction direction})))))))
+                                  (table.insert pushes (lume.extend stone {:direction direction :event "push"})))))))
       (lume.unique pushes)))
 
 (fn is-possible-add [x y color board]
@@ -162,12 +187,6 @@
     (lume.filter board (lambda [stone]
                          (or (= 0 (# (find-neighbors stone.x stone.y stone.color board)))
                              (not (in-bounds stone))))))
-
-(fn place-stone [x y color old-board]
-    "return a new board with a stone added given coords"
-    (let [new-board (lume.deepclone old-board)]
-      (table.insert new-board {: x : y : color})
-      (lume.unique new-board)))
 
 (fn place-stones [stones old-board]
     (let [new-board (lume.deepclone old-board)]
@@ -246,7 +265,8 @@
      false))
 
 ;; ------------------------------------------------------|
-;; |       Finite state machine & Global State           |
+;; |       Finite State Machine & Global State           |
+;; |      Imparative code below, enter with causion      |
 ;; |                                                     |
 ;; ------------------------------------------------------|
 
@@ -335,7 +355,6 @@
 (fn onenter-game-over [self event from to winner]
     (print winner))
 
-;; output is the game
 (fn init-board [?board ?turn]
     (machine.create {:state {:army nil ;; used for limiting move actions
                              :current-turn-action-counter 2

@@ -17,36 +17,53 @@
 
 (fn rate-position [color board]
     "give a value for the colors position on the board"
-    (let [(x-goal y-goal) (phalanx.goal-position color)
-          distance (distance-to color board x-goal y-goal)
-          color-count (lume.count (phalanx.only color board))
-          other-count (lume.count (phalanx.only color board))]
-      (+ (/ 1 distance) (/ 1 (- color-count other-color)))))
-
-
-
-(fn possible-moves [color board]
-    "TODO"
-    [])
-
-(fn possible-pushes [color board]
-    "TODO"
-    [])
+    (if (phalanx.touching-temple color board)
+        ;; if youre touching the temple, youve won
+        100
+        ;; lets try and judge how good the current position is
+        (let [(x-goal y-goal) (phalanx.goal-position color)
+              distance (distance-to color board x-goal y-goal)
+              color-count (lume.count (phalanx.only color board))
+              other-count (lume.count (phalanx.only color board))]
+          (+ (/ 1 distance) (/ 1 (- color-count other-color))))))
 
 
 (fn possible-moves [color board]
     (lume.concat (phalanx.possible-adds color board)
-                 (phalanx.possible-moves color board)
+                 (phalanx.possible-complete-moves color board)
                  (phalanx.possible-pushes color board)))
 
-(fn execute [move fsm ]
-    (let [(event params) (values move)]
-      "TODO"
-      ))
+(fn execute [action board]
+    "returns a board where the action was executed"
+    (match action.event
+           "add" (phalanx.place-stone action.x action.y board)
+           "move" (lume.each action.moves
+                             (lambda [move]
+                               (phalanx.remove-stone move.x move.y board)
+                               (phalanx.place-stone move.x2 move.y2 board)))
+           "push" (phalanx.push action.x action.y action.direction board)))
 
-(fn handle-computer [color board]
-    "picks moves for the AI to play"
+(fn pick-action [color board]
+    "picks (best) action for the AI to play"
     (-> (possible-moves color board)
-        (lume.map (lambda [move] (rate-position (execute move))))
+        (lume.map (lambda [action] (rate-position (execute action board))))
         (lume.sort)
         (lume.first)))
+
+;; ------------------------------------------------------|
+;; |      Imparative code below, enter with causion      |
+;; |                                                     |
+;; ------------------------------------------------------|
+
+(fn make-turn [fsm]
+    "makes moves on the FSM game. THIS MUTATES 'fsm'"
+    (let [color fms.state.current-color]
+      (while (= fms.state.current-color color)
+             (let [action (pick-action color fms.state.board)]
+               (match action.event
+                      "add" (fms:place action.x action.y)
+                      "move" (lume.each action.moves
+                                        (lambda [move]
+                                          (fms:pick move.x move.y)
+                                          (fms:place move.x2 move.y2)))
+                      "push" (fms:push action.x action.y action.direction))))))
