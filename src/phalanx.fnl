@@ -13,6 +13,10 @@
 ;; |                                            |
 ;; ----------------------------------------------
 
+(fn loc= [a b]
+    (and (= a.x b.x)
+         (= a.y b.y)))
+
 (fn only [color board]
     "return the stones for the given color"
     (lume.filter board #(= (. $1 :color) color)))
@@ -23,9 +27,7 @@
 
 (fn stone-at [x y board]
     "returns  (values stone board-index)"
-    (lume.match board (lambda [stone]
-                        (and (= stone.x x)
-                             (= stone.y y)))))
+    (lume.match board (lambda [stone] (loc= stone {: x : y}))))
 
 (fn color-at [x y board]
     "the color at the coords"
@@ -41,13 +43,12 @@
            _ nil))
 
 (fn in-bounds [coord]
-    (let [{: x : y} coord]
-      (and (> x 0)
-           (<= x globals.map-size)
-           (> y 0)
-           (<= y globals.map-size)
-           (not (and (= x 1) (= y 1)))    ;; exclude black temple
-           (not (and (= x 9) (= y 9)))))) ;; exclude white temple
+    (and (> coord.x 0)
+         (<= coord.x globals.map-size)
+         (> coord.y 0)
+         (<= coord.y globals.map-size)
+         (not (loc= coord {:x 1 :y 1})) ;; exclude black temple
+         (not (loc= coord {:x 9 :y 9})))) ;; exclude white temple
 
 (fn find-neighbors [x y color board]
     "return the orthogonal neighbors which are the desired color. passing nil for color will find open neighbors"
@@ -60,22 +61,21 @@
                      (and (= color (color-at neighbor.x neighbor.y board))
                           (in-bounds neighbor))))))
 
-(fn possible-adds [?color board]
+(fn possible-adds [color board]
     "possible locations for the add action for a color on a map.
      [{event:'add' x:2 y:3}]"
-    (local moves [])
-    (lume.each
-     (if ?color (only ?color board) board)
-     (lambda [stone]
-       (lume.each (find-neighbors stone.x stone.y nil board)
-                  #(table.insert moves (lume.merge $1 {:event "add"})))))
-    (lume.unique moves))
+    (lume.reduce (only color board)
+                 (lambda [acc stone]
+                   (lume.each (find-neighbors stone.x stone.y nil board)
+                              (lambda [coords]
+                                (when (not (lume.any acc #(loc= $1 coords)))
+                                  (lume.push acc (lume.merge coords {:event "add"})))))
+                   acc)
+                 {}))
 
 (fn remove-stone [x y old-board]
     "return a new board with a stone removed at given coords"
-    (lume.reject old-board (lambda [spot]
-                             (and (= x spot.x)
-                                  (= y spot.y)))))
+    (lume.reject old-board (lambda [spot] (loc= spot {: x : y}))))
 
 (fn place-stone [x y color old-board]
     "return a new board with a stone added given coords"
@@ -166,9 +166,7 @@
 
 (fn is-possible-add [x y color board]
     "check if the x y coords and a color is a valid add move"
-    (lume.any (possible-adds color board)
-              (lambda [stone]
-                (and (= stone.x x) (= stone.y y)))))
+    (lume.any (possible-adds color board) #(loc= $1 {: x : y})))
 
 (fn army-at [x y color board]
     "find all connected pieces (an army) for a color starting at a position"
@@ -233,13 +231,12 @@
 
 (fn neighbor-of [x y x-goal y-goal]
     "check if (x,y) is a neighbor of (x-goal, y-goal)"
-    (let [neighbors [{ :x (+ x 1) :y y}
+    (let [goal {:x x-goal :y y-goal}
+          neighbors [{ :x (+ x 1) :y y}
                      { :x (- x 1) :y y}
                      { :x x :y (+ y 1)}
                      { :x x :y (- y 1)}]]
-      (lume.any neighbors (lambda [spot]
-                            (and (= spot.x x-goal)
-                                 (= spot.y y-goal))))))
+      (lume.any neighbors #(loc= $1 goal))))
 
 (fn goal-position [color]
     (values (if (= color col.BLACK) 1 9)
@@ -401,4 +398,18 @@
                                  :onenter-placing-second-stone onenter-placing-stone
                                  : onenter-game-over}}))
 
-{: init-board}
+{
+ ;; used in views/game
+ : init-board
+
+ ;; used in ai
+ : only
+ : other
+ : touching-temple
+ : goal-position
+ : possible-adds
+ : possible-moves
+ : possible-pushes
+ : place-stone
+ : remove-stone
+ : push}
