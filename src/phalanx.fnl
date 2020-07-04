@@ -13,6 +13,10 @@
 ;; |                                            |
 ;; ----------------------------------------------
 
+(fn loc= [a b]
+    (and (= a.x b.x)
+         (= a.y b.y)))
+
 (fn only [color board]
     "return the stones for the given color"
     (lume.filter board #(= (. $1 :color) color)))
@@ -23,9 +27,7 @@
 
 (fn stone-at [x y board]
     "returns  (values stone board-index)"
-    (lume.match board (lambda [stone]
-                        (and (= stone.x x)
-                             (= stone.y y)))))
+    (lume.match board (lambda [stone] (loc= stone {: x : y}))))
 
 (fn color-at [x y board]
     "the color at the coords"
@@ -41,13 +43,12 @@
            _ nil))
 
 (fn in-bounds [coord]
-    (let [{: x : y} coord]
-      (and (> x 0)
-           (<= x globals.map-size)
-           (> y 0)
-           (<= y globals.map-size)
-           (not (and (= x 1) (= y 1)))    ;; exclude black temple
-           (not (and (= x 9) (= y 9)))))) ;; exclude white temple
+    (and (> coord.x 0)
+         (<= coord.x globals.map-size)
+         (> coord.y 0)
+         (<= coord.y globals.map-size)
+         (not (loc= coord {:x 1 :y 1})) ;; exclude black temple
+         (not (loc= coord {:x 9 :y 9})))) ;; exclude white temple
 
 (fn find-neighbors [x y color board]
     "return the orthogonal neighbors which are the desired color. passing nil for color will find open neighbors"
@@ -61,31 +62,50 @@
                           (in-bounds neighbor))))))
 
 (fn possible-adds [color board]
-    "possible locations for the add action for a color on a map"
-    (local moves [])
-    (lume.each
-     (only color board)
-     (lambda [stone]
-       (lume.each (find-neighbors stone.x stone.y nil board)
-                  #(table.insert moves $1))))
-    (lume.unique moves))
+    "possible locations for the add action for a color on a map.
+     [{event:'add' x:2 y:3}]"
+    (lume.reduce (only color board)
+                 (lambda [acc stone]
+                   (lume.each (find-neighbors stone.x stone.y nil board)
+                              (lambda [coords]
+                                (when (not (lume.any acc #(loc= $1 coords)))
+                                  (lume.push acc (lume.merge coords {:event "add"})))))
+                   acc)
+                 {}))
 
-(fn is-possible-add [x y color board]
-    "check if the x y coords and a color is a valid add move"
-    (lume.any (possible-adds color board)
-              (lambda [stone]
-                (and (= stone.x x) (= stone.y y)))))
+(fn remove-stone [x y old-board]
+    "return a new board with a stone removed at given coords"
+    (lume.reject old-board (lambda [spot] (loc= spot {: x : y}))))
 
-(fn army-at [x y color board]
-    "find all connected pieces (an army) for a color starting at a position"
-    (fn army-tail [x y seen-stones]
-        (lume.each (find-neighbors x y color board)
-                   (lambda [stone]
-                     (when (not (stone-at stone.x stone.y seen-stones))
-                       (table.insert seen-stones {:x stone.x :y stone.y :color color})
-                       (lume.concat seen-stones (army-tail stone.x stone.y seen-stones)))))
-        seen-stones)
-    (army-tail x y []))
+(fn place-stone [x y color old-board]
+    "return a new board with a stone added given coords"
+    (let [new-board (lume.deepclone old-board)]
+      (table.insert new-board {: x : y : color})
+      (lume.unique new-board)))
+
+(fn possible-moves [color board]
+    "possible moves for the board, a move consists of 2 from->to locations
+     [{event:'move' moves: [{x:1 y:1 x2:2 y2:3}, {x:1 y:1 x2:2 y2:3}]}]"
+    (fn possible-moves-tail [color board]
+        (lume.reduce (only color board)
+                     (lambda [acc from]
+                       (lume.each (possible-adds color (remove-stone from.x from.y board))
+                                  (lambda [to]
+                                    (lume.push acc {:x from.x :y from.y
+                                                    :x2 to.x :y2 to.y})))
+                       acc)))
+    (var moves {})
+    (lume.each (possible-moves-tail color board)
+               (lambda [move1]
+                 (let [second-move-board (->> board
+                                              (remove-stone move1.x move1.y)
+                                              (place-stone move1.x2 move1.y2 color))]
+                   (lume.each (possible-moves-tail color second-move-board)
+                              (lambda [move2]
+                                (table.insert moves
+                                              {:event "move"
+                                               :moves [move1 move2]}))))))
+    moves)
 
 (fn opposite [direction]
     (match direction
@@ -100,6 +120,7 @@
            dir.RIGHT (values #(+ $1 1) #$1)
            dir.UP (values #$1 #(- $1 1))
            dir.DOWN (values #$1 #(+ $1 1))))
+
 
 (fn get-starting-position [x y color direction board]
     (let [opponate-color (other color)
@@ -128,28 +149,45 @@
           (is-possible-push-tail start-x start-y 0 0)
           false))) ;; must start on your own color
 
+(fn possible-pushes [color board]
+    "list of all possible pushes for a color on the board
+    [{event:'push' x:1 y:2 direction:'UP'}]"
+    (let [board (only color board)
+          pushes {}]
+      (lume.each board
+                 (lambda [stone]
+                   (lume.each [dir.LEFT dir.RIGHT dir.UP dir.DOWN]
+                              (lambda [direction]
+                                (when (is-possible-push stone.x stone.y color direction board)
+                                  (table.insert pushes (lume.extend stone {:direction direction :event "push"})))))))
+      (lume.unique pushes)))
+
+(fn is-possible-add [x y color board]
+    "check if the x y coords and a color is a valid add move"
+    (lume.any (possible-adds color board) #(loc= $1 {: x : y})))
+
+(fn army-at [x y color board]
+    "find all connected pieces (an army) for a color starting at a position"
+    (fn army-tail [x y seen-stones]
+        (lume.each (find-neighbors x y color board)
+                   (lambda [stone]
+                     (when (not (stone-at stone.x stone.y seen-stones))
+                       (table.insert seen-stones {:x stone.x :y stone.y :color color})
+                       (lume.concat seen-stones (army-tail stone.x stone.y seen-stones)))))
+        seen-stones)
+    (army-tail x y []))
+
+
 (fn dead-stones [board]
     "list of all the dead/isolated stones on the board"
     (lume.filter board (lambda [stone]
                          (or (= 0 (# (find-neighbors stone.x stone.y stone.color board)))
                              (not (in-bounds stone))))))
 
-(fn place-stone [x y color old-board]
-    "return a new board with a stone added given coords"
-    (let [new-board (lume.deepclone old-board)]
-      (table.insert new-board {: x : y : color})
-      (lume.unique new-board)))
-
 (fn place-stones [stones old-board]
     (let [new-board (lume.deepclone old-board)]
       (lume.each stones #(table.insert new-board $1))
       (lume.unique new-board)))
-
-(fn remove-stone [x y old-board]
-    "return a new board with a stone removed at given coords"
-    (lume.reject old-board (lambda [spot]
-                             (and (= x spot.x)
-                                  (= y spot.y)))))
 
 (fn remove-stones [stones old-board]
     "return a new board with all the stones given removed"
@@ -191,18 +229,20 @@
 
 (fn neighbor-of [x y x-goal y-goal]
     "check if (x,y) is a neighbor of (x-goal, y-goal)"
-    (let [neighbors [{ :x (+ x 1) :y y}
+    (let [goal {:x x-goal :y y-goal}
+          neighbors [{ :x (+ x 1) :y y}
                      { :x (- x 1) :y y}
                      { :x x :y (+ y 1)}
                      { :x x :y (- y 1)}]]
-      (lume.any neighbors (lambda [spot]
-                            (and (= spot.x x-goal)
-                                 (= spot.y y-goal))))))
+      (lume.any neighbors #(loc= $1 goal))))
+
+(fn goal-position [color]
+    (values (if (= color col.BLACK) 1 9)
+            (if (= color col.BLACK) 1 9)))
 
 (fn touching-temple [color board]
     "check if color is touching the temple"
-    (let [x-goal (if (= color col.BLACK) 1 9)
-          y-goal (if (= color col.BLACK) 1 9)]
+    (let [(x-goal y-goal) (goal-position color)]
       (lume.any board (lambda [spot]
                         (and (= spot.color color)
                              (neighbor-of spot.x spot.y x-goal y-goal))))))
@@ -220,7 +260,8 @@
      false))
 
 ;; ------------------------------------------------------|
-;; |       Finite state machine & Global State           |
+;; |       Finite State Machine & Global State           |
+;; |      Imparative code below, enter with causion      |
 ;; |                                                     |
 ;; ------------------------------------------------------|
 
@@ -238,10 +279,8 @@
       (tset self.state :current-turn (other self.state.current-turn))
       (tset self.state :current-turn-action-counter 2)
       (self:clearHistory))
-    ;; TODO: this is broken
-    ;; (let [winner (game-over self.state.board)]
-    ;;   (when winner (self.endgame winner)))
-    )
+    (let [winner (game-over self.state.board)]
+      (when winner (self:endgame winner))))
 
 (fn onbefore-clean [self _event _from _to dead-stones]
     "an intermediate transition to put the removed stones into the history stack"
@@ -309,19 +348,19 @@
 (fn onenter-game-over [self event from to winner]
     (print winner))
 
-;; output is the game
-(fn init-board []
+(fn init-board [?board ?turn]
     (machine.create {:state {:army nil ;; used for limiting move actions
-                             :current-turn col.BLACK
                              :current-turn-action-counter 2
-                             :board [{:x 2 :y 2 :color col.WHITE}
-                                     {:x 2 :y 3 :color col.WHITE}
-                                     {:x 3 :y 2 :color col.WHITE}
-                                     {:x 3 :y 3 :color col.WHITE}
-                                     {:x 7 :y 7 :color col.BLACK}
-                                     {:x 7 :y 8 :color col.BLACK}
-                                     {:x 8 :y 7 :color col.BLACK}
-                                     {:x 8 :y 8 :color col.BLACK}]}
+                             :current-turn (or ?turn col.BLACK)
+                             :board (or ?board
+                                        [{:x 2 :y 2 :color col.WHITE}
+                                         {:x 2 :y 3 :color col.WHITE}
+                                         {:x 3 :y 2 :color col.WHITE}
+                                         {:x 3 :y 3 :color col.WHITE}
+                                         {:x 7 :y 7 :color col.BLACK}
+                                         {:x 7 :y 8 :color col.BLACK}
+                                         {:x 8 :y 7 :color col.BLACK}
+                                         {:x 8 :y 8 :color col.BLACK}])}
                      :initial "selecting-action"
                      :events [;; Move
                               {:name "move" :from "selecting-action" :to "picking-first-stone"}
@@ -355,4 +394,18 @@
                                  :onenter-placing-second-stone onenter-placing-stone
                                  : onenter-game-over}}))
 
-{: init-board}
+{
+ ;; used in views/game
+ : init-board
+
+ ;; used in ai
+ : only
+ : other
+ : touching-temple
+ : goal-position
+ : possible-adds
+ : possible-moves
+ : possible-pushes
+ : place-stone
+ : remove-stone
+ : push}
