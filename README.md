@@ -12,8 +12,8 @@ __Setup:__ For each player place 4 stones in the shape of a square in adjacent c
 
 __Life & Death:__ 2 hoplite are connected if they share an adjacent intersection. 2 or more connected hoplites are considered a living phalanx. A hoplite is dead if they are not connected to another hoplite, or if they are pushed off the board (more below). Dead hoplites are immediately removed from the board.
 
-__Flow of Play:__ Black takes the first turn, then players alternate back and forth. A turn consists of doing 0, 1 or 2 of the following actions (you may do the same action twice).
-- __MOVE:__ move up to 2 hoplites to an adjacent intersection touching their army. You may split or merge phalanx, but hoplites may not jump between unconnected phalanx.
+__Flow of Play:__ Black takes the first turn, then players alternate back and forth. A turn consists of doing optionally up to 3 actions. The same action may be done multiple times. The possible actions are:
+- __MOVE:__ move 1 hoplite to an adjacent intersection touching their army. You may split or merge phalanx, but hoplites may not jump between unconnected phalanx.
 - __RENFORCE/ADD:__ If you have less than 9 hoplites on the board, add a new hoplite to an existing phalanx
 - __PUSH:__ if your phalanx is connected to an opponent's, and the number of your hoplites is greater then the opponents in a straight line, and there is an open intersection on the other side of the line, you may slide the whole line towards the opponent's hoplites 1 intersection. Hoplites pushed off the board are dead.
 
