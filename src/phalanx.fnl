@@ -64,8 +64,8 @@
 (fn valid-neighbors [pos color board]
     "return the orthogonal neighbors which are the desired color. passing nil for color will find open neighbors"
     (lume.filter (neighbors-of pos)
-                 #(and (= color (color-at $1 board)
-                        (in-bounds $1)))))
+                 #(and (= color (color-at $1 board))
+                       (in-bounds $1))))
 
 (fn opposite [direction]
     "the opposite orthogonal direction"
@@ -83,14 +83,14 @@
            dir.UP    #(lume.merge $1 {:y (- (. $1 :y) 1)})
            dir.DOWN  #(lume.merge $1 {:y (+ (. $1 :y) 1)})))
 
-(fn remove-stone [x y old-board]
+(fn remove-stone [pos old-board]
     "return a new board with a stone removed at given poss"
-    (lume.reject old-board (lambda [spot] (loc= spot {: x : y}))))
+    (lume.reject old-board (lambda [spot] (loc= spot pos))))
 
-(fn place-stone [x y color old-board]
+(fn place-stone [pos color old-board]
     "return a new board with a stone added given poss"
     (let [new-board (lume.deepclone old-board)]
-      (table.insert new-board {: x : y : color})
+      (table.insert new-board (lume.merge pos {: color}))
       (lume.unique new-board)))
 
 (fn place-stones [stones old-board]
@@ -137,9 +137,9 @@
     (lume.reduce (only color board)
                  (lambda [acc stone]
                    (lume.each (valid-neighbors stone nil board)
-                              (lambda [poss]
-                                (when (not (lume.any acc #(loc= $1 poss)))
-                                  (lume.push acc (lume.merge poss {:event "add"})))))
+                              (lambda [pos]
+                                (when (not (lume.any acc #(loc= $1 pos)))
+                                  (lume.push acc (lume.merge pos {:event "add"})))))
                    acc)
                  {}))
 
@@ -205,7 +205,7 @@
     "return a new board after a push action at the given pos and direction has been undone. This requires some special attention/tweaks"
     (let [new-board (lume.deepclone old-board)
           iter (direction-iter direction)
-          starting-pos (get-starting-position (iter startin-pos) color direction new-board)
+          starting-pos (get-starting-position (iter starting-pos) color direction new-board)
           opp-iter (direction-iter (opposite direction))]
       (fn pushnt-line-tail [pos board]
           (match (stone-at pos old-board)
@@ -241,7 +241,7 @@
 
 ;; ------------------------------------------------------|
 ;; |       Finite State Machine & Global State           |
-;; |      Imparative code below, enter with causion      |
+;; |      Imparative code below, enter with caution      |
 ;; |                                                     |
 ;; ------------------------------------------------------|
 
@@ -285,23 +285,26 @@
 (fn onundo-move [self]
     (give-an-action self))
 
-(fn onbefore-pick [self _event _from _to x y]
-    (if (= (color-at x y self.state.board) self.state.current-turn)
-        (tset self.state :board (remove-stone x y self.state.board))
+(fn onbefore-pick [self _event _from _to pos]
+    (if (= (color-at pos self.state.board) self.state.current-turn)
+        (tset self.state :board (remove-stone pos self.state.board))
         false))
 
-(fn onundo-pick [self _event _from _to x y]
-    (tset self.state :board (place-stone x y self.state.current-turn self.state.board)))
+(fn onundo-pick [self _event _from _to pos]
+    (tset self.state :board (place-stone pos self.state.current-turn self.state.board)))
 
-(fn onenter-placing-stone [self _event _from _to x y]
-    (when (= (type x) "number")
-      (self:setarmy (army-at x y self.state.current-turn self.state.board))))
+(fn onenter-placing-stone [self _event from _to pos]
+    (when (= from "picking-stone")
+      (self:setarmy (army-at pos self.state.current-turn self.state.board))))
 
-(fn onbefore-place [self _event _from _to x y]
+(fn onbefore-place [self _event _from _to pos]
     (let [board (or self.state.army self.state.board)]
-      (if (is-possible-add x y self.state.current-turn board)
-          (tset self.state :board (place-stone x y self.state.current-turn self.state.board))
+      (if (is-possible-add pos self.state.current-turn board)
+          (tset self.state :board (place-stone pos self.state.current-turn self.state.board))
           false)))
+
+(fn onundo-place [self _event _from _to pos]
+    (tset self.state :board (remove-stone pos self.state.board)))
 
 (fn onbefore-setarmy [self _event _from _to army]
     (tset self.state :army army))
@@ -311,19 +314,17 @@
     (tset self.state :army army)
     (self:undoTransition))
 
-(fn onundo-place [self _event _from _to x y]
-    (tset self.state :board (remove-stone x y self.state.board)))
-
 (fn onbefore-lineup [self] (take-an-action self))
+
 (fn onundo-lineup [self] (give-an-action self))
 
-(fn onbefore-push [self _event _from _to x y direction]
-    (if (is-possible-push x y self.state.current-turn direction self.state.board)
-        (tset self.state :board (push x y self.state.current-turn direction self.state.board))
+(fn onbefore-push [self _event _from _to pos direction]
+    (if (is-possible-push pos self.state.current-turn direction self.state.board)
+        (tset self.state :board (push pos self.state.current-turn direction self.state.board))
         false))
 
-(fn onundo-push [self _even _from _to x y direction]
-    (tset self.state :board (undo-push x y self.state.current-turn direction self.state.board)))
+(fn onundo-push [self _even _from _to pos direction]
+    (tset self.state :board (undo-push pos self.state.current-turn direction self.state.board)))
 
 (fn onenter-game-over [self event from to winner]
     (print winner))
@@ -342,25 +343,15 @@
                                          {:x 8 :y 7 :color col.BLACK}
                                          {:x 8 :y 8 :color col.BLACK}])}
                      :initial "selecting-action"
-                     :events [;; Move
-                              {:name "move" :from "selecting-action" :to "picking-first-stone"}
-                              {:name "pick" :from "picking-first-stone" :to "placing-first-stone"}
-                              {:name "place" :from "placing-first-stone" :to "picking-second-stone"}
-                              {:name "pick" :from "picking-second-stone" :to "placing-second-stone"}
-                              ;; Add
+                     :events [{:name "move" :from "selecting-action" :to "picking-stone"}
+                              {:name "pick" :from "picking-stone" :to "placing-stone"}
                               {:name "add" :from "selecting-action" :to "placing-stone"}
-                              ;; Add / Move
-                              {:name "place" :from ["placing-stone" "placing-second-stone"] :to "selecting-action"}
-                              ;; Push
-                              {:name "lineup" :from "selecting-action" :to "picking-push-line"}
-                              {:name "push" :from "picking-push-line" :to "selecting-action"}
-                              ;; Gameover
+                              {:name "place" :from "placing-stone" :to "selecting-action"}
+                              {:name "lineup" :from "selecting-action" :to "lining-up-push"}
+                              {:name "push" :from "lining-up-push" :to "selecting-action"}
                               {:name "endgame" :from "selecting-action" :to "game-over"}
-                              ;; remove dead stones (is an action so they are stored in history)
                               {:name "clean" :from "selecting-action" :to "selecting-action"}
-                              ;; store army changes in history
-                              {:name "setarmy" :from "placing-first-stone" :to "placing-first-stone"}
-                              {:name "setarmy" :from "placing-second-stone" :to "placing-second-stone"}]
+                              {:name "setarmy" :from "placing-stone" :to "placing-stone"}]
                      :callbacks {: onenter-selecting-action
                                  : onbefore-clean   : onundo-clean
                                  : onbefore-add     : onundo-add
@@ -370,8 +361,7 @@
                                  : onbefore-lineup  : onundo-lineup
                                  : onbefore-push    : onundo-push
                                  : onbefore-setarmy : onundo-setarmy
-                                 :onenter-placing-first-stone onenter-placing-stone
-                                 :onenter-placing-second-stone onenter-placing-stone
+                                 : onenter-placing-stone
                                  : onenter-game-over}}))
 
 {

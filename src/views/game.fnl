@@ -15,7 +15,7 @@
 
 (var fsm nil)
 
-(var cursor {:action 2 :x 5 :y 5 :direction dir.UP})
+(var cursor {:action 2 :pos {:x 5 :y 5} :direction dir.UP})
 
 (fn init []
     (set fsm (phalanx.init-board)))
@@ -40,11 +40,11 @@
 
 (fn cursor-movement-handler [key event]
     (match key
-           dir.RIGHT (tset cursor :x (+ cursor.x 1))
-           dir.LEFT (tset cursor :x (- cursor.x 1))
-           dir.UP (tset cursor :y (- cursor.y 1))
-           dir.DOWN (tset cursor :y (+ cursor.y 1))
-           "x" (: fsm event cursor.x cursor.y cursor.direction)
+           dir.RIGHT (tset cursor.pos :x (+ cursor.pos.x 1))
+           dir.LEFT (tset cursor.pos :x (- cursor.pos.x 1))
+           dir.UP (tset cursor.pos :y (- cursor.pos.y 1))
+           dir.DOWN (tset cursor.pos :y (+ cursor.pos.y 1))
+           "x" (: fsm event cursor.pos cursor.direction)
            "b" (: fsm :undoTransition)))
 
 (fn direction-handler [key]
@@ -62,19 +62,13 @@
                                      dir.LEFT (tset cursor :action (- cursor.action 1))
                                      "x" (: fsm
                                             (match cursor.action 1 :add 2 :move 3 :lineup)
-                                            cursor.x cursor.y cursor.direction)
+                                            cursor.pos cursor.direction)
                                      "b" (: fsm :undoTransition))
-           ;; add action
            "placing-stone" (cursor-movement-handler key :place)
-           ;; move action
-           "picking-first-stone" (cursor-movement-handler key :pick)
-           "placing-first-stone" (cursor-movement-handler key :place)
-           "picking-second-stone" (cursor-movement-handler key :pick)
-           "placing-second-stone" (cursor-movement-handler key :place)
-           ;; push action
-           "picking-push-line" (do
-                                (cursor-movement-handler key :push)
-                                (direction-handler key))))
+           "picking-stone" (cursor-movement-handler key :pick)
+           "lining-up-push" (do
+                             (cursor-movement-handler key :push)
+                             (direction-handler key))))
     (match cursor
            {:action 0} (tset cursor :action 3)
            {:action 4} (tset cursor :action 1)
@@ -97,7 +91,7 @@
     (gfx.rect col.WHITE 170 170 20 20))
 
 (fn draw-cursor []
-    (gfx.circle fsm.state.current-turn (* cursor.x 20) (* cursor.y 20) 7))
+    (gfx.circle fsm.state.current-turn (* cursor.pos.x 20) (* cursor.pos.y 20) 7))
 
 (fn draw-ui []
     ;; (gfx.print (.. "White remaining: " (fsm.functs.free-stones-count col.WHITE))  200 10)
@@ -112,17 +106,11 @@
               (gfx.rect col.BLACK (- x 4) 69 39 20))))
     (match fsm.current
            "selecting-action" nil
-           ;; add action
            "placing-stone" (draw-cursor)
-           ;; move action
-           "picking-first-stone" (draw-cursor)
-           "placing-first-stone" (draw-cursor)
-           "picking-second-stone" (draw-cursor)
-           "placing-second-stone" (draw-cursor)
-           ;; push action
-           "picking-push-line" (do
-                                (draw-cursor)
-                                (gfx.print (.. "direction: " cursor.direction) 200 90))))
+           "picking-stone" (draw-cursor)
+           "lining-up-push" (do
+                             (draw-cursor)
+                             (gfx.print (.. "direction: " cursor.direction) 200 90))))
 
 (fn draw []
     (draw-board)
