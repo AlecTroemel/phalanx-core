@@ -148,7 +148,7 @@
      [{event: 'move', from: {x y}, to: {x y}}]"
     (lume.reduce (only color board)
                  (lambda [acc from]
-                   (lume.each (possible-adds color (remove-stone from.x from.y board))
+                   (lume.each (possible-adds color (remove-stone from board))
                               (lambda [to] (lume.push acc {:event "move" : from : to})))
                    acc)))
 
@@ -161,7 +161,7 @@
                  (lambda [stone]
                    (lume.each [dir.LEFT dir.RIGHT dir.UP dir.DOWN]
                               (lambda [direction]
-                                (when (is-possible-push stone.x stone.y color direction board)
+                                (when (is-possible-push stone color direction board)
                                   (table.insert pushes (lume.extend stone {:direction direction :event "push"})))))))
       (lume.unique pushes)))
 
@@ -190,12 +190,13 @@
 (fn push [starting-pos color direction old-board]
     "return a new board after a push action at the given pos and direction"
     (let [new-board (lume.deepclone old-board)
-          start-pos (get-starting-position starting-pos color direction new-board)
+          starting-pos (get-starting-position starting-pos color direction new-board)
           iter (direction-iter direction)]
       (fn push-line-tail [pos]
+          "PS this mutates new-board"
           (match (stone-at pos old-board)
                  (next-stone index) (do
-                                     (tset new-board index (lume.merge pos {:color next-stone.color}))
+                                     (tset new-board index (lume.merge (iter pos) {:color next-stone.color}))
                                      (when (~= nil next-stone.color)
                                        (push-line-tail (iter pos) next-stone.color)))))
       (push-line-tail starting-pos)
