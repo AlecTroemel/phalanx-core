@@ -258,7 +258,7 @@
       (when (> (# dead-stones) 0) (self:clean dead-stones)))
     (when (= self.state.current-turn-action-counter 0)
       (tset self.state :current-turn (other self.state.current-turn))
-      (tset self.state :current-turn-action-counter 2)
+      (tset self.state :current-turn-action-counter globals.moves-per-turn)
       (self:clearHistory))
     (let [winner (game-over self.state.board)]
       (when winner (self:endgame winner))))
@@ -332,7 +332,7 @@
 
 (fn init-board [?board ?turn]
     (machine.create {:state {:army nil ;; used for limiting move actions
-                             :current-turn-action-counter 2
+                             :current-turn-action-counter globals.moves-per-turn
                              :current-turn (or ?turn col.BLACK)
                              :board (or ?board
                                         [{:x 2 :y 2 :color col.WHITE}

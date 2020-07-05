@@ -1,3 +1,12 @@
+;; ------------------------------------------------------|
+;; | An (extremely dumb) AI player. It currently just    |
+;; | looks at the board and picks the best action from a |
+;; | (very simple) heuristic. It DOES NOT CURRENTLY      |
+;; |  - look at all 3 actions in conjunction. it simply  |
+;; |    does them 1 at a time in isolation;              |
+;; |  - look at opponate turns (min/max alg)             |
+;; ------------------------------------------------------|
+
 (include :lib.globals)
 
 (global phalanx (include :phalanx))
@@ -12,12 +21,12 @@
 (global distance-to-goal (lume.memoize
                           (fn distance-to-inner [color board]
                               "calculate the distance (straight line) the stones are from a position"
-                              (let [(x-goal y-goal) (phalanx.goal-position color)]
-                                (let [closest (lume.first (lume.sort (phalanx.only color board)
-                                                                     (lambda [a b] (if (= a.x b.x)
-                                                                                       (< a.y b.y)
-                                                                                       (< a.x b.x)))))]
-                                  (mem-distance closest.x closest.y x-goal y-goal true))))))
+                              (let [goal (phalanx.goal-position color)
+                                    closest (lume.first (lume.sort (phalanx.only color board)
+                                                                   (lambda [a b] (if (= a.x b.x)
+                                                                                     (< a.y b.y)
+                                                                                     (< a.x b.x)))))]
+                                (mem-distance closest.x closest.y goal.x goal.y true)))))
 
 (fn rate-position [color board]
     "give a value for the colors position on the board"
@@ -34,18 +43,15 @@
 (fn possible-moves [color board]
     (lume.concat (phalanx.possible-adds color board)
                  (phalanx.possible-moves color board)
-                 (phalanx.possible-pushes color board)))
+                 (phalanx.possible-pushes color board);))
 
 (fn execute [action color board]
     "returns a board where the action was executed"
     (match action.event
-           "add" (phalanx.place-stone action.x action.y color board)
-           "move" (->> board
-                       (phalanx.remove-stone (. (. action.moves 1) :x ) (. (. action.moves 1) :y ))
-                       (phalanx.place-stone (. (. action.moves 1) :x2 ) (. (. action.moves 1) :y2 ) color)
-                       (phalanx.remove-stone (. (. action.moves 2) :x ) (. (. action.moves 2) :y ))
-                       (phalanx.place-stone (. (. action.moves 2) :x2 ) (. (. action.moves 2) :y2 ) color))
-           "push" (phalanx.push action.x action.y action.direction color board)))
+           "add" (phalanx.place-stone action color board)
+           "move" (->> (phalanx.remove-stone action.from board)
+                       (phalanx.place-stone action.to color))
+           "push" (phalanx.push action action.direction color board)))
 
 (fn pick-action [color board]
     "picks (best) action for the AI to play"

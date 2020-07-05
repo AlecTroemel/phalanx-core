@@ -27,16 +27,14 @@
           (match action.event
                  "add" (do
                         (fsm:add)
-                        (fsm:place action.x action.y))
+                        (fsm:place action))
                  "move" (do
                          (fsm:move)
-                         (lume.each action.moves
-                                   (lambda [move]
-                                     (fsm:pick move.x move.y)
-                                     (fsm:place move.x2 move.y2))))
+                         (fsm:pick action.from)
+                         (fsm:place action.to))
                  "push" (do
                          (fsm:lineup)
-                         (fsm:push action.x action.y action.direction)))))))
+                         (fsm:push action action.direction)))))))
 
 (fn cursor-movement-handler [key event]
     (match key
