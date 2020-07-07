@@ -201,14 +201,14 @@
 (fn draw-ui []
     ;; (gfx.print (.. "White remaining: " (fsm.functs.free-stones-count col.WHITE))  200 10)
     ;; (gfx.print (.. "Black remaining: " (fsm.functs.free-stones-count col.BLACK))  200 30)
-    (gfx.print (.. "Turn: " fsm.state.current-turn) 200 50)
-    (gfx.print (.. "actions left: " fsm.state.current-turn-action-counter) 200 110)
-    (gfx.print (.. "state: " fsm.current) 200 130)
+    (gfx.print (.. "Turn: " fsm.state.current-turn) 20 200)
+    (gfx.print (.. "actions left: " fsm.state.current-turn-action-counter) 20 220)
+    (gfx.print (.. "state: " fsm.current) 20 10)
     (each [i action (ipairs ["add" "move" "push"])]
           (let [x (+ 200 (* i 40))]
-           (gfx.print action x 70)
+           (gfx.print action x 200)
             (when (= i cursor.action)
-              (gfx.rect col.BLACK (- x 4) 69 39 20))))
+              (gfx.rect col.BLACK (- x 4) 199 39 20))))
     (match fsm.current
            "selecting-action" nil
            "placing-stone" (draw-cursor)
