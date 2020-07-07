@@ -164,13 +164,11 @@
            {:y 10} (tset cursor :y 9)))
 
 (fn draw-board []
-    (love.graphics.translate 200 120)
-    (love.graphics.push)
+    (love.graphics.translate 200 120) ;; Translate to center of screen
     ;; the board
     (lume.each objects
                (lambda [obj]
-                 (let [nodes (rotate-x (rotate-y obj.nodes BOARD-ROTATE)
-                                       BOARD-TILT)
+                 (let [nodes (rotate-x (rotate-y obj.nodes BOARD-ROTATE) BOARD-TILT)
                        edges obj.edges]
                    (lume.each nodes
                               (lambda [node] (gfx.circle "white" node.x node.y NODE-SIZE)))
@@ -179,7 +177,7 @@
                                 (let [node1 (. nodes edge.from)
                                       node2 (. nodes edge.to)]
                                   (gfx.line node1.x node1.y node2.x node2.y)))))))
-    ;; the stones currently on the board
+    ;; the stones
     (let [nodes (lume.map fsm.state.board
                           (lambda [stone] {:x (- (* stone.x 20) 100)
                                            :y 10
@@ -188,10 +186,17 @@
       (lume.each (rotate-x (rotate-y nodes BOARD-ROTATE) BOARD-TILT)
                  (lambda [spot]
                    (gfx.circle spot.color spot.x spot.y 7))))
-    (love.graphics.pop))
+    (love.graphics.translate -200 -120)) ;; Translate back to normal coords
 
 (fn draw-cursor []
-    (gfx.circle fsm.state.current-turn (* cursor.pos.x 20) (* cursor.pos.y 20) 7))
+    (let [pos {:x (- (* cursor.pos.x 20) 100)
+               :y 10
+               :z (- (* cursor.pos.y 20) 100)}
+          pos (lume.first (rotate-x (rotate-y [pos] BOARD-ROTATE) BOARD-TILT))]
+      (love.graphics.translate 200 120)
+      (gfx.circle fsm.state.current-turn pos.x pos.y 7)
+      (love.graphics.translate -200 -120)
+      ))
 
 (fn draw-ui []
     ;; (gfx.print (.. "White remaining: " (fsm.functs.free-stones-count col.WHITE))  200 10)
