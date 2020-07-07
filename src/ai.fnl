@@ -43,7 +43,7 @@
 (fn possible-moves [color board]
     (lume.concat (phalanx.possible-adds color board)
                  (phalanx.possible-moves color board)
-                 (phalanx.possible-pushes color board);))
+                 (phalanx.possible-pushes color board)))
 
 (fn execute [action color board]
     "returns a board where the action was executed"

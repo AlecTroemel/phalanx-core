@@ -1,5 +1,5 @@
 local fennel = require("fennel")
-local game = fennel.dofile("views/3d.fnl")
+local game = fennel.dofile("views/game.fnl")
 
 function love.load()
   game.init()

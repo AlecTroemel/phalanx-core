@@ -17,10 +17,96 @@
 
 (var cursor {:action 2 :pos {:x 5 :y 5} :direction dir.UP})
 
+;; ------------------------------------------------------|
+;; |                    3D wireframe                     |
+;; |                                                     |
+;; | https://petercollingridge.appspot.com/3D-tutorial/rotating-objects |
+;; ------------------------------------------------------|
+(global NODE-SIZE 1)
+
+(var BOARD-TILT 10)
+(var BOARD-ROTATE 0)
+(var BOARD-ROTATE-VEL 0)
+(var objects [])
+
+(fn rotate-x [nodes theta]
+    "rotate nodes around the x axis"
+    (let [sin-t (math.sin theta)
+          cos-t (math.cos theta)]
+      (lume.map nodes (lambda [node]
+                        (lume.merge node
+                                    {:y (- (* node.y cos-t) (* node.z sin-t))
+                                     :z (+ (* node.z cos-t) (* node.y sin-t))})))))
+
+(fn rotate-y [nodes theta]
+    "rotate nodes around the y axis"
+    (let [sin-t (math.sin theta)
+          cos-t (math.cos theta)]
+      (lume.map nodes (lambda [node]
+                        (lume.merge node
+                                    {:x (- (* node.x cos-t) (* node.z sin-t))
+                                     :z (+ (* node.z cos-t) (* node.x sin-t))})))))
+
+(fn rotate-z [nodes theta]
+    "rotate nodes around the z axis"
+    (let [sin-t (math.sin theta)
+          cos-t (math.cos theta)]
+      (lume.map nodes (lambda [node]
+                        (lume.merge node
+                                    {:x (- (* node.x cos-t) (* node.y sin-t))
+                                     :y (+ (* node.y cos-t) (* node.x sin-t))})))))
+
+(fn create-cuboid [x y z w h d]
+    (let [w (/ w 2)
+          h (/ h 2)
+          d (/ d 2)]
+      {:nodes [{:x (- x w) :y (- y h) :z (- z d)}
+               {:x (- x w) :y (- y h) :z (+ z d)}
+               {:x (- x w) :y (+ y h) :z (- z d)}
+               {:x (- x w) :y (+ y h) :z (+ z d)}
+               {:x (+ x w) :y (- y h) :z (- z d)}
+               {:x (+ x w) :y (- y h) :z (+ z d)}
+               {:x (+ x w) :y (+ y h) :z (- z d)}
+               {:x (+ x w) :y (+ y h) :z (+ z d)}]
+       :edges [{:from 1 :to 2} {:from 2 :to 4} {:from 4 :to 3} {:from 3 :to 1}
+               {:from 5 :to 6} {:from 6 :to 8} {:from 8 :to 7} {:from 7 :to 5}
+               {:from 1 :to 5} {:from 2 :to 6} {:from 3 :to 7} {:from 4 :to 8}]}))
+
+(fn create-grid [x y z count dist sep]
+    (let [nodes []
+          edges []]
+      (for [i 1 (* count 4) 4]
+           (let [sep (* (/ (- i 1) 4) sep)]
+             (lume.push nodes
+                        {:x x : y :z (+ z sep)}
+                        {:x (+ x dist) : y  :z (+ z sep)}
+                        {:x (+ x sep) : y :z z}
+                        {:x (+ x sep) : y :z (+ z dist)}))
+           (lume.push edges
+                      {:from i :to (+ i 1)}
+                      {:from (+ i 2) :to (+ i 3)}))
+      {: nodes : edges}))
+
+;; ------------------------------------------------------|
+;; |               lets actually draw the game           |
+;; |                                                     |
+;; ------------------------------------------------------|
+
 (fn init []
+    (lume.push objects
+               (create-cuboid 0 0 0 200 4 200) ;; board
+               (create-cuboid -80 20 -80 10 30 10) ;; goal 1
+               (create-cuboid 80 20 80 10 30 10) ;; goal 2
+               (create-grid -80 5 -80 9 160 20))
     (set fsm (phalanx.init-board)))
 
 (fn update []
+    (set BOARD-ROTATE-VEL (if (love.keyboard.isDown "q") 0.05
+                              (love.keyboard.isDown "e") -0.05
+                              (/ BOARD-ROTATE-VEL 1.15)))
+    (set BOARD-ROTATE (+ BOARD-ROTATE BOARD-ROTATE-VEL))
+
+
     (let [color (phalanx.other player-color)]
       (when (= color fsm.state.current-turn)
         (let [action (ai.pick-action color fsm.state.board)]
@@ -43,7 +129,9 @@
            dir.UP (tset cursor.pos :y (- cursor.pos.y 1))
            dir.DOWN (tset cursor.pos :y (+ cursor.pos.y 1))
            "x" (: fsm event cursor.pos cursor.direction)
-           "b" (: fsm :undoTransition)))
+           "b" (: fsm :undoTransition)
+           "q"
+           "e" (set BOARD-ROTATE (- BOARD-ROTATE 0.5))))
 
 (fn direction-handler [key]
     (match key
@@ -76,17 +164,31 @@
            {:y 10} (tset cursor :y 9)))
 
 (fn draw-board []
+    (love.graphics.translate 200 120)
+    (love.graphics.push)
     ;; the board
-    (for [i 1 9]
-         (let [j (* 20 i) ]
-           (gfx.line 20 j 180 j)    ;; x lines
-           (gfx.line j 20 j 180)))  ;; y lines
+    (lume.each objects
+               (lambda [obj]
+                 (let [nodes (rotate-x (rotate-y obj.nodes BOARD-ROTATE)
+                                       BOARD-TILT)
+                       edges obj.edges]
+                   (lume.each nodes
+                              (lambda [node] (gfx.circle "white" node.x node.y NODE-SIZE)))
+                   (lume.each edges
+                              (lambda [edge]
+                                (let [node1 (. nodes edge.from)
+                                      node2 (. nodes edge.to)]
+                                  (gfx.line node1.x node1.y node2.x node2.y)))))))
     ;; the stones currently on the board
-    (lume.each fsm.state.board
-               (lambda [spot] (gfx.circle spot.color (* spot.x 20) (* spot.y 20) 9)))
-    ;; temples
-    (gfx.rect col.BLACK 10 10 20 20)
-    (gfx.rect col.WHITE 170 170 20 20))
+    (let [nodes (lume.map fsm.state.board
+                          (lambda [stone] {:x (- (* stone.x 20) 100)
+                                           :y 10
+                                           :z (- (* stone.y 20) 100)
+                                           :color stone.color}))]
+      (lume.each (rotate-x (rotate-y nodes BOARD-ROTATE) BOARD-TILT)
+                 (lambda [spot]
+                   (gfx.circle spot.color spot.x spot.y 7))))
+    (love.graphics.pop))
 
 (fn draw-cursor []
     (gfx.circle fsm.state.current-turn (* cursor.pos.x 20) (* cursor.pos.y 20) 7))
