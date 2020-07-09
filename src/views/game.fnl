@@ -25,8 +25,8 @@
 (global NODE-SIZE 1)
 
 (var BOARD-TILT 10)
-(var BOARD-ROTATE 0)
-(var BOARD-ROTATE-VEL 0)
+(var board-rotate 0)
+(var board-rotate-vel 0)
 (var objects [])
 
 (fn rotate-x [nodes theta]
@@ -101,12 +101,10 @@
     (set fsm (phalanx.init-board)))
 
 (fn update []
-    (set BOARD-ROTATE-VEL (if (love.keyboard.isDown "q") 0.05
+    (set board-rotate-vel (if (love.keyboard.isDown "q") 0.05
                               (love.keyboard.isDown "e") -0.05
-                              (/ BOARD-ROTATE-VEL 1.15)))
-    (set BOARD-ROTATE (+ BOARD-ROTATE BOARD-ROTATE-VEL))
-
-
+                              (/ board-rotate-vel 1.15)))
+    (set board-rotate (+ board-rotate board-rotate-vel))
     (let [color (phalanx.other player-color)]
       (when (= color fsm.state.current-turn)
         (let [action (ai.pick-action color fsm.state.board)]
@@ -129,9 +127,7 @@
            dir.UP (tset cursor.pos :y (- cursor.pos.y 1))
            dir.DOWN (tset cursor.pos :y (+ cursor.pos.y 1))
            "x" (: fsm event cursor.pos cursor.direction)
-           "b" (: fsm :undoTransition)
-           "q"
-           "e" (set BOARD-ROTATE (- BOARD-ROTATE 0.5))))
+           "b" (: fsm :undoTransition)))
 
 (fn direction-handler [key]
     (match key
@@ -168,7 +164,7 @@
     ;; the board
     (lume.each objects
                (lambda [obj]
-                 (let [nodes (rotate-x (rotate-y obj.nodes BOARD-ROTATE) BOARD-TILT)
+                 (let [nodes (rotate-x (rotate-y obj.nodes board-rotate) BOARD-TILT)
                        edges obj.edges]
                    (lume.each nodes
                               (lambda [node] (gfx.circle "white" node.x node.y NODE-SIZE)))
@@ -183,7 +179,7 @@
                                            :y 10
                                            :z (- (* stone.y 20) 100)
                                            :color stone.color}))]
-      (lume.each (rotate-x (rotate-y nodes BOARD-ROTATE) BOARD-TILT)
+      (lume.each (rotate-x (rotate-y nodes board-rotate) BOARD-TILT)
                  (lambda [spot]
                    (gfx.circle spot.color spot.x spot.y 7))))
     (love.graphics.translate -200 -120)) ;; Translate back to normal coords
@@ -192,7 +188,7 @@
     (let [pos {:x (- (* cursor.pos.x 20) 100)
                :y 10
                :z (- (* cursor.pos.y 20) 100)}
-          pos (lume.first (rotate-x (rotate-y [pos] BOARD-ROTATE) BOARD-TILT))]
+          pos (lume.first (rotate-x (rotate-y [pos] board-rotate) BOARD-TILT))]
       (love.graphics.translate 200 120)
       (gfx.circle fsm.state.current-turn pos.x pos.y 7)
       (love.graphics.translate -200 -120)
