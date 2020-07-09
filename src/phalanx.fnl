@@ -342,7 +342,8 @@
                                          {:x 7 :y 7 :color col.BLACK}
                                          {:x 7 :y 8 :color col.BLACK}
                                          {:x 8 :y 7 :color col.BLACK}
-                                         {:x 8 :y 8 :color col.BLACK}])}
+                                         {:x 8 :y 8 :color col.BLACK}
+                                         ])}
                      :initial "selecting-action"
                      :events [{:name "move" :from "selecting-action" :to "picking-stone"}
                               {:name "pick" :from "picking-stone" :to "placing-stone"}
