@@ -24,7 +24,7 @@
 ;; ------------------------------------------------------|
 (global NODE-SIZE 1)
 
-(var BOARD-TILT 10)
+(var BOARD-TILT (/ (* 7.5 math.pi) 6))
 (var board-rotate 0)
 (var board-rotate-vel 0)
 (var objects [])
