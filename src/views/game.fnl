@@ -20,7 +20,7 @@
 ;; ------------------------------------------------------|
 ;; |                    3D wireframe                     |
 ;; |                                                     |
-;; | https://petercollingridge.appspot.com/3D-tutorial/rotating-objects |
+;; | https://petercollingridge.appspot.com/3D-tutorial/  |
 ;; ------------------------------------------------------|
 (global NODE-SIZE 1)
 
@@ -33,28 +33,31 @@
     "rotate nodes around the x axis"
     (let [sin-t (math.sin theta)
           cos-t (math.cos theta)]
-      (lume.map nodes (lambda [node]
-                        (lume.merge node
-                                    {:y (- (* node.y cos-t) (* node.z sin-t))
-                                     :z (+ (* node.z cos-t) (* node.y sin-t))})))))
+      (lume.map nodes
+                (lambda [node]
+                  (lume.merge node
+                              {:y (- (* node.y cos-t) (* node.z sin-t))
+                               :z (+ (* node.z cos-t) (* node.y sin-t))})))))
 
 (fn rotate-y [nodes theta]
     "rotate nodes around the y axis"
     (let [sin-t (math.sin theta)
           cos-t (math.cos theta)]
-      (lume.map nodes (lambda [node]
-                        (lume.merge node
-                                    {:x (- (* node.x cos-t) (* node.z sin-t))
-                                     :z (+ (* node.z cos-t) (* node.x sin-t))})))))
+      (lume.map nodes
+                (lambda [node]
+                  (lume.merge node
+                              {:x (- (* node.x cos-t) (* node.z sin-t))
+                               :z (+ (* node.z cos-t) (* node.x sin-t))})))))
 
 (fn rotate-z [nodes theta]
     "rotate nodes around the z axis"
     (let [sin-t (math.sin theta)
           cos-t (math.cos theta)]
-      (lume.map nodes (lambda [node]
-                        (lume.merge node
-                                    {:x (- (* node.x cos-t) (* node.y sin-t))
-                                     :y (+ (* node.y cos-t) (* node.x sin-t))})))))
+      (lume.map nodes
+                (lambda [node]
+                  (lume.merge node
+                              {:x (- (* node.x cos-t) (* node.y sin-t))
+                               :y (+ (* node.y cos-t) (* node.x sin-t))})))))
 
 (fn create-cuboid [x y z w h d]
     (let [w (/ w 2)
@@ -104,7 +107,7 @@
     (set board-rotate-vel (if (love.keyboard.isDown "q") 0.05
                               (love.keyboard.isDown "e") -0.05
                               (/ board-rotate-vel 1.15)))
-    (set board-rotate (+ board-rotate board-rotate-vel))
+    (set board-rotate (% (+ board-rotate board-rotate-vel) (* math.pi 2)))
     (let [color (phalanx.other player-color)]
       (when (= color fsm.state.current-turn)
         (let [action (ai.pick-action color fsm.state.board)]
@@ -120,8 +123,26 @@
                          (fsm:lineup)
                          (fsm:push action action.direction)))))))
 
+(fn array-% [a b] (+ (% (- a 1) b) 1))
+
+(fn rotate-key-input [key rotation]
+    "rotate the direction to match closest to what player 'expects'
+     using the unit circle. complete rotation is 2pi"
+    (let [key-order [dir.RIGHT dir.UP dir.LEFT dir.DOWN]]
+      (if (lume.any key-order #(= $1 key))
+          (let [len (# key-order)
+                i (array-% (lume.find key-order key) len)]
+            (if (and (> rotation (/ (* 4 math.pi) 3)) (< rotation (/ (* 11 math.pi) 6)))
+                (. key-order (array-% (+ i 3) len))
+                (> rotation (/ (* 5 math.pi) 6))
+                (. key-order (array-% (+ i 2) len))
+                (> rotation (/ math.pi 3))
+                (. key-order (array-% (+ i 1) len))
+                key))
+          key)))
+
 (fn cursor-movement-handler [key event]
-    (match key
+    (match (rotate-key-input key board-rotate)
            dir.RIGHT (tset cursor.pos :x (+ cursor.pos.x 1))
            dir.LEFT (tset cursor.pos :x (- cursor.pos.x 1))
            dir.UP (tset cursor.pos :y (- cursor.pos.y 1))
