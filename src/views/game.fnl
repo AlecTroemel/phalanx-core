@@ -2,8 +2,8 @@
 ;; |                  Graphics & Input                   |
 ;; |                                                     |
 ;; ------------------------------------------------------|
-(include :lib.gfx)
-(include :lib.globals)
+(global gfx (include :lib.gfx))
+(global globals (include :lib.globals))
 (global lume (require :lib.lume))
 (global inspect (require :lib.inspect))
 
@@ -95,7 +95,7 @@
 ;; |                                                     |
 ;; ------------------------------------------------------|
 
-(fn init []
+(fn init [mgr]
     (lume.push objects
                (create-cuboid 0 0 0 200 4 200) ;; board
                (create-cuboid -80 20 -80 10 30 10) ;; goal 1
@@ -103,7 +103,7 @@
                (create-grid -80 5 -80 9 160 20))
     (set fsm (phalanx.init-board)))
 
-(fn update []
+(fn update [mgr dt]
     (set board-rotate-vel (if (love.keyboard.isDown "q") 0.05
                               (love.keyboard.isDown "e") -0.05
                               (/ board-rotate-vel 1.15)))
@@ -157,7 +157,7 @@
            "a" (tset cursor :direction dir.LEFT)
            "d" (tset cursor :direction dir.RIGHT)))
 
-(fn keypressed [key]
+(fn keypressed [mgr key]
     (when (= player-color fsm.state.current-turn)
       (match fsm.current
            "selecting-action" (match key
@@ -212,8 +212,7 @@
           pos (lume.first (rotate-x (rotate-y [pos] board-rotate) BOARD-TILT))]
       (love.graphics.translate 200 120)
       (gfx.circle fsm.state.current-turn pos.x pos.y 7)
-      (love.graphics.translate -200 -120)
-      ))
+      (love.graphics.translate -200 -120)))
 
 (fn draw-ui []
     ;; (gfx.print (.. "White remaining: " (fsm.functs.free-stones-count col.WHITE))  200 10)
@@ -234,9 +233,9 @@
                              (draw-cursor)
                              (gfx.print (.. "direction: " cursor.direction) 200 90))))
 
-(fn draw []
+(fn draw [mgr]
     (draw-board)
     (draw-ui))
 
 
-{: draw : init : update : keypressed}
+{: init : update : draw : keypressed}

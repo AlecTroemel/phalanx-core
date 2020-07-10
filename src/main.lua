@@ -1,18 +1,18 @@
 local fennel = require("fennel")
-local game = fennel.dofile("views/game.fnl")
+local manager = fennel.dofile("manager.fnl")
 
 function love.load()
-  game.init()
+  manager:init()
 end
 
 function love.update(dt)
-  game.update(dt)
+  manager:update(dt)
 end
 
 function love.draw()
-  game.draw()
+  manager:draw()
 end
 
 function love.keypressed(key)
-  game.keypressed(key)
+  manager:keypressed(key)
 end
