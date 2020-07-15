@@ -122,7 +122,7 @@
       (fn is-possible-push-tail [pos ally-count opponate-count]
           (match (color-at pos board)
                  color (if (> opponate-count 0)
-                           false ;; you've blocked yourself
+                           (>  ally-count opponate-count) ;; your squishing into yourself
                            (is-possible-push-tail (iter pos) (+ 1 ally-count) opponate-count))
                  opponate-color (is-possible-push-tail (iter pos) ally-count (+ 1 opponate-count))
                  nil (and (> opponate-count 0) ;; must actually touch opponate
@@ -195,11 +195,15 @@
       (fn push-line-tail [pos]
           "PS this mutates new-board"
           (match (stone-at pos old-board)
-                 (next-stone index) (do
-                                     (tset new-board index (lume.merge (iter pos) {:color next-stone.color}))
-                                     (when (~= nil next-stone.color)
-                                       (push-line-tail (iter pos) next-stone.color)))))
-      (push-line-tail starting-pos)
+                 (stone index)
+                 (if (and (= (other color) stone.color) ;; handle case of squishing opponates pieces
+                          (= color (color-at (iter pos) old-board)))
+                     (tset new-board index (lume.merge (iter pos) {: color}))
+                     (do
+                      (tset new-board index (lume.merge (iter pos) {:color stone.color}))
+                      (when (~= nil stone.color)
+                        (push-line-tail (iter pos) stone.color))))))
+      (push-line-tail starting-pos false)
       (lume.unique new-board)))
 
 (fn undo-push [starting-pos color direction old-board]
@@ -258,7 +262,8 @@
       (when (> (# dead-stones) 0) (self:clean dead-stones)))
     (when (= self.state.current-turn-action-counter 0)
       (tset self.state :current-turn (other self.state.current-turn))
-      (tset self.state :current-turn-action-counter globals.moves-per-turn)
+      (tset self.state :current-turn-action-counter (+ globals.moves-per-turn
+                                                       (if (= self.state.turn-counter 2) 1 0)))
       (self:clearHistory))
     (let [winner (game-over self.state.board)]
       (when winner (self:endgame winner))))
@@ -334,6 +339,7 @@
     (machine.create {:state {:army nil ;; used for limiting move actions
                              :current-turn-action-counter globals.moves-per-turn
                              :current-turn (or ?turn col.BLACK)
+                             :turn-counter 1 ;; player 2 gets 4 actions on their first turn
                              :board (or ?board
                                         [{:x 2 :y 2 :color col.WHITE}
                                          {:x 2 :y 3 :color col.WHITE}
@@ -342,8 +348,7 @@
                                          {:x 7 :y 7 :color col.BLACK}
                                          {:x 7 :y 8 :color col.BLACK}
                                          {:x 8 :y 7 :color col.BLACK}
-                                         {:x 8 :y 8 :color col.BLACK}
-                                         ])}
+                                         {:x 8 :y 8 :color col.BLACK}])}
                      :initial "selecting-action"
                      :events [{:name "move" :from "selecting-action" :to "picking-stone"}
                               {:name "pick" :from "picking-stone" :to "placing-stone"}
