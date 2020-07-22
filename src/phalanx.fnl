@@ -206,6 +206,8 @@
       (push-line-tail starting-pos false)
       (lume.unique new-board)))
 
+
+;; TODO this is broken,, maybe should just store the whole board on push in histor and restore that
 (fn undo-push [starting-pos color direction old-board]
     "return a new board after a push action at the given pos and direction has been undone. This requires some special attention/tweaks"
     (let [new-board (lume.deepclone old-board)
