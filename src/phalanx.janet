@@ -25,12 +25,8 @@
                   {:x 8 :y 8} BLACK})
 
 (defn only [color board]
-  "return the stones for a given color"
-  (let [new-board @{}]
-    (loop [[pos col] :in (pairs board)]
-      (when (= col color)
-        (put new-board pos col)))
-    new-board))
+  "return the stones for a given color."
+  (table ;(flatten (filter |(= (get $ 1) color) (pairs board))))) # NOTE: converts to list -> filters -> back to table from kvs
 
 (defn free-stone-count [color board]
   "the number of remain stones (max of 9) looking at the stone-map"
@@ -76,7 +72,7 @@
   "return a new board with all the stones given removed (recursively)"
   (if (= (length poss) 1)
     (remove-stone (first poss) board)
-    (remove-stones (array/slice poss 1 -1) (remove-stone (first poss) board))))
+    (remove-stones (drop 1 poss) (remove-stone (first poss) board))))
 
 (defn add-stone [pos color board]
   "return a new board with a stone added given pos"
