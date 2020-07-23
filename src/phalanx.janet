@@ -82,7 +82,7 @@
   "return a new board with all the stones given added (recursively)"
   (if (= (length poss) 1)
     (add-stone (first poss) color board)
-    (add-stones (array/slice poss 1 -1)
+    (add-stones (drop 1 poss)
                 color
                 (add-stone (first poss) color board))))
 
