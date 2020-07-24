@@ -9,13 +9,13 @@
      :right :left))
 
 (def board @{[2 2] :white
-                  [2 3] :white
-                  [3 2] :white
-                  [3 3] :white
-                  [7 7] :black
-                  [7 8] :black
-                  [8 7] :black
-                  [8 8] :black})
+             [2 3] :white
+             [3 2] :white
+             [3 3] :white
+             [7 7] :black
+             [7 8] :black
+             [8 7] :black
+             [8 8] :black})
 
 (defn only [color board]
   "return the stones for a given color."
