@@ -92,13 +92,18 @@
                  (valid-neighbors $ nil board))
            (keys (only color board)))))
 
-(defn is-possible-add [pos color board]
+(defn possible-add? [pos color board]
   "check if pos is valid add. see possible-adds for rules"
   (find |(= pos $) (possible-adds color board)))
 
+# TODO
+(defn army-at [pos color board] nil)
 
 (defn possible-moves [color board]
-  "possible moves for the board, a move consists of 'from' and 'to' location
+  "possible moves for the board, a move consists of...
+   - from: current stone on board
+   - to: valid add on a open (nil) location on board resulting from removing from stone
+  TODO: check army at
   [[[x y] [x y] :move]]"
   (distinct
    (mapcat (fn [from]
@@ -106,7 +111,21 @@
                       (possible-adds color (remove-stone from board))))
            (keys (only color board)))))
 
+(defn possible-move? [move color board]
+  "check if pos is valid add. see possible-moves for rules"
+  (find |(and (= (move 0) ($ 0)) # only need to check to and from
+              (= (move 1) ($ 1)))
+        (possible-moves color board)))
 
+# TODO
+(defn possible-pushes [dir pos color board] nil)
+(defn possible-push? [dir pos color board] nil)
+(defn push [dir pos color board] nil)
+(defn dead-stones [board] nil)
+
+
+
+# testing
 (each n (possible-adds :white test-board)
   (print "x:" (get n 0) " y:" (get n 1)))
 
