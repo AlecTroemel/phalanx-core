@@ -1,40 +1,26 @@
-# directions
-(def UP "UP")
-(def DOWN "DOWN")
-(def LEFT "LEFT")
-(def RIGHT "RIGHT")
-
-# stone colors
-(def BLACK "BLACK")
-(def WHITE "WHITE")
-
-# actions
-(def ADD "ADD")
-(def MOVE "MOVE")
-(def PUSH "PUSH")
-
 (defn flip [thing]
   "flip color or dir, black<->white, left<->right, up<->down"
   (match thing
-    "WHITE" BLACK
-    "BLACK" WHITE
-    "UP"    DOWN
-    "DOWN"  UP
-    "LEFT"  RIGHT
-    "RIGHT" LEFT))
+     :white :black
+     :black :white
+     :up :down
+     :down :up
+     :left :right
+     :right :left))
 
-(def test-board @{{:x 2 :y 2} WHITE
-                  {:x 2 :y 3} WHITE
-                  {:x 3 :y 2} WHITE
-                  {:x 3 :y 3} WHITE
-                  {:x 7 :y 7} BLACK
-                  {:x 7 :y 8} BLACK
-                  {:x 8 :y 7} BLACK
-                  {:x 8 :y 8} BLACK})
+(def board @{[2 2] :white
+                  [2 3] :white
+                  [3 2] :white
+                  [3 3] :white
+                  [7 7] :black
+                  [7 8] :black
+                  [8 7] :black
+                  [8 8] :black})
 
 (defn only [color board]
   "return the stones for a given color."
-  (table ;(flatten (filter |(= (get $ 1) color) (pairs board))))) # NOTE: converts to list -> filters -> back to table from kvs
+  (table ;(mapcat |(if (= color (get $ 1)) $ [])
+                  (pairs board))))
 
 (defn free-stone-count [color board]
   "the number of remain stones (max of 9) looking at the stone-map"
@@ -42,17 +28,17 @@
 
 (defn in-bounds [pos]
   "are the xy pos inside the bounds of the board (temples are out of bounds)"
-  (and (> (pos :x) 0) (<= (pos :x) 9)
-       (> (pos :y) 0) (<= (pos :y) 9)
+  (and (> (pos 0) 0) (<= (pos 0) 9)
+       (> (pos 1) 0) (<= (pos 1) 9)
        (not= pos [1 1]) # black temple
        (not= pos [9 9]))) # white temple
 
 (defn neighbors-of [pos]
-  "list orthogonal in bounds neighbors of pos"
-  @[{:x (inc (pos :x)) :y (pos :y)}
-    {:x (dec (pos :x)) :y (pos :y)}
-    {:x (pos :x) :y (inc (pos :y))}
-    {:x (pos :x) :y (dec (pos :y))}])
+  "list of orthogonal neighbors of pos"
+  @[[(inc (pos 0)) (pos 1)]
+    [(dec (pos 0)) (pos 1)]
+    [(pos 0) (inc (pos 1))]
+    [(pos 0) (dec (pos 1))]])
 
 (defn are-neighbors [pos-a pos-b]
   "check if pos-a is an orthogonal in bounds neighbor of pos-b"
@@ -67,10 +53,10 @@
 (defn direction-iter [direction]
   "return a function to move a pos in a directio"
   (match direction
-    "LEFT"  |(merge $ {:x (dec (get $ :x))})
-    "RIGHT" |(merge $ {:x (inc (get $ :x))})
-    "UP"    |(merge $ {:y (dec (get $ :y))})
-    "DOWN"  |(merge $ {:y (inc (get $ :y))})))
+    :left  |(tuple (dec ($ 0)) ($ 1))
+    :right |(tuple (inc ($ 0)) ($ 1))
+    :up    |(tuple ($ 0) (dec ($ 1)))
+    :down  |(tuple ($ 0) (inc ($ 1)))))
 
 (defn remove-stone [pos board]
   "return a new board with a stone removed at given pos"
@@ -100,18 +86,20 @@
    - adjacent to color
    - in bounds
    - currently unoccupied
-   [{:event :x :y}]"
+   [[x y :add]]"
   (distinct
-   (flatten
-    (map |(valid-neighbors $ nil board)
-         (keys (only color board))))))
+   (mapcat |(map |(tuple ;$ :add)
+                 (valid-neighbors $ nil board))
+           (keys (only color board)))))
 
 (defn is-possible-add [pos color board]
   "check if pos is valid add. see possible-adds for rules"
   (find |(= pos $) (possible-adds color board)))
 
-(each n (possible-adds WHITE test-board)
-  (print "x:" (get n :x) " y:" (get n :y)))
+(each n (possible-adds :white test-board)
+  (print "x:" (get n 0) " y:" (get n 1)))
+
+
 
 # (each n (valid-neighbors {:x 3 :y 4} nil test-board)
 #   (print "x:" (get n :x) " y:" (get n :y)))
