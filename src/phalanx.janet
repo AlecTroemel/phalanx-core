@@ -1,9 +1,17 @@
+# directions
 (def UP "UP")
 (def DOWN "DOWN")
 (def LEFT "LEFT")
 (def RIGHT "RIGHT")
+
+# stone colors
 (def BLACK "BLACK")
 (def WHITE "WHITE")
+
+# actions
+(def ADD "ADD")
+(def MOVE "MOVE")
+(def PUSH "PUSH")
 
 (defn flip [thing]
   "flip color or dir, black<->white, left<->right, up<->down"
@@ -72,7 +80,8 @@
   "return a new board with all the stones given removed (recursively)"
   (if (= (length poss) 1)
     (remove-stone (first poss) board)
-    (remove-stones (drop 1 poss) (remove-stone (first poss) board))))
+    (remove-stones (drop 1 poss)
+                   (remove-stone (first poss) board))))
 
 (defn add-stone [pos color board]
   "return a new board with a stone added given pos"
@@ -87,15 +96,22 @@
                 (add-stone (first poss) color board))))
 
 (defn possible-adds [color board]
-  "return list of all possible adds for a color on the board. [{:event :x :y}]"
-  nil)
-
-(defn is-possible-add [pos color board]
-  "check if the pos and a color is a valid add move. that means is the pos
+  "list of all possible valid add move. A valid add is a pos that is
    - adjacent to color
    - in bounds
-   - currently unoccupied"
-  nil)
+   - currently unoccupied
+   [{:event :x :y}]"
+  (distinct
+   (flatten
+    (map |(valid-neighbors $ nil board)
+         (keys (only color board))))))
+
+(defn is-possible-add [pos color board]
+  "check if pos is valid add. see possible-adds for rules"
+  (find |(= pos $) (possible-adds color board)))
+
+(each n (possible-adds WHITE test-board)
+  (print "x:" (get n :x) " y:" (get n :y)))
 
 # (each n (valid-neighbors {:x 3 :y 4} nil test-board)
 #   (print "x:" (get n :x) " y:" (get n :y)))
