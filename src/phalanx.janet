@@ -96,6 +96,17 @@
   "check if pos is valid add. see possible-adds for rules"
   (find |(= pos $) (possible-adds color board)))
 
+
+(defn possible-moves [color board]
+  "possible moves for the board, a move consists of 'from' and 'to' location
+  [[[x y] [x y] :move]]"
+  (distinct
+   (mapcat (fn [from]
+             (mapcat (fn [to] [[from (slice to 0 2) :move]])
+                      (possible-adds color (remove-stone from board))))
+           (keys (only color board)))))
+
+
 (each n (possible-adds :white test-board)
   (print "x:" (get n 0) " y:" (get n 1)))
 
