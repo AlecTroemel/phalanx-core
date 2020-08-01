@@ -94,9 +94,9 @@
    - adjacent to color
    - in bounds
    - currently unoccupied
-   [((x y) :add)]"
+   [(:add (x y))]"
   (distinct
-   (mapcat |(map |(tuple $ :add)
+   (mapcat |(map |(tuple :add $)
                  (valid-neighbors $ nil board))
            (keys (only color board)))))
 
@@ -137,10 +137,10 @@
   "possible moves for the board, a move consists of...
    - from: current stone on board
    - to: valid add on a open (nil) location on board resulting from removing from stone
-  [((x y) (x2 y2) :move)]"
+  [(:move (x y) (x2 y2))]"
   (distinct
    (mapcat (fn [from]
-             (mapcat (fn [to] [[from (to 0) :move]])
+             (mapcat (fn [to] [[:move from (to 0)]])
                      (possible-adds
                       color
                       (remove-stone from (army-at from color board)))))
@@ -151,13 +151,11 @@
   (find |(= [;move :move] $)
         (possible-moves color board)))
 
-(defn move-stone [move color board]
+(defn move-stone [from to color board]
   "return a board with the stone moved"
   (when (not (possible-move? move color board))
     (error "not a valid move"))
-  (add-stone (move 1)
-             color
-             (remove-stone (move 0) board)))
+  (add-stone to color (remove-stone from board)))
 
 (defn starting-position [dir pos color board]
   "the furthest stone away from opponate on the push line (recursive)"
@@ -195,15 +193,15 @@
 
 (defn possible-pushes [color board]
   "list of all possible pushes for a color on the board
-  [:dir (x y) :push]"
+  [:push (x y) :dir]"
   (let [pushes @[]]
     (loop [[pos color] :pairs board]
       (each dir [:left :right :up :down]
         (when (possible-push? dir pos color board)
-          (array/push pushes [dir pos :push]))))
+          (array/push pushes [:push pos dir]))))
     pushes))
 
-(defn push-stones [dir pos color old-board]
+(defn push-stones [pos dir color old-board]
   "return a new board after a push action at the given pos and direction"
   (when (not (possible-push? dir pos color old-board))
     (error "not a valid push"))
