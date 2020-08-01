@@ -243,13 +243,13 @@
   # possible-pushes
   (test "possible-pushes: all directions"
         (deep= (possible-pushes :white @{[4 4] :white
-                                           [4 5] :white
-                                           [5 4] :white
-                                           [5 5] :white
-                                           [5 3] :black
-                                           [6 4] :black
-                                           [3 5] :black
-                                           [4 6] :black})
+                                         [4 5] :white
+                                         [5 4] :white
+                                         [5 5] :white
+                                         [5 3] :black
+                                         [6 4] :black
+                                         [3 5] :black
+                                         [4 6] :black})
                @[[:right [4 4] :push]
                  [:down [4 4] :push]
                  [:left [4 5] :push]
@@ -261,14 +261,23 @@
 
   # push
   (test "push: simple case"
-        (deep= (push :up [2 2] :white @{[1 1] :black
-                                        [2 1] :black
-                                        [2 2] :white
-                                        [2 3] :white
-                                        [2 4] :white})
+        (deep= (push-stones :up [2 2] :white @{[1 1] :black
+                                               [2 1] :black
+                                               [2 2] :white
+                                               [2 3] :white
+                                               [2 4] :white})
                @{[1 1] :black
                  [2 0] :black
                  [2 1] :white
                  [2 2] :white
                  [2 3] :white}))
+
+  # move
+  (test "move: simple case"
+        (deep= (move-stone [[2 2] [3 1]] :white @{[2 2] :white
+                                                  [2 1] :white
+                                                  [2 0] :white})
+               @{[2 0] :white
+                 [2 1] :white
+                 [3 1] :white}))
   )

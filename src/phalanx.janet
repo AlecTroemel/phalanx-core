@@ -18,6 +18,17 @@
     [7 6] :black
     [7 7] :black})
 
+(defn print-board [board]
+  (print "|---- BOARD ----|")
+  (for i 0 9
+    (for j 0 9
+      (prin "|" (match (board [j i])
+                   :white "W"
+                   :black "B"
+                   _ " ")))
+    (print ""))
+  (print "|---------------|"))
+
 (defn only [color board]
   "return the stones for a given color"
   (table ;(mapcat |(if (= color (get $ 1)) $ [])
@@ -78,18 +89,6 @@
     (remove-stones (drop 1 poss)
                    (remove-stone (first poss) board))))
 
-(defn add-stone [pos color board]
-  "return a new board with a stone added given pos"
-  (put (table/clone board) pos color))
-
-(defn add-stones [poss color board]
-  "return a new board with all the stones given added (recursively)"
-  (if (= (length poss) 1)
-    (add-stone (first poss) color board)
-    (add-stones (drop 1 poss)
-                color
-                (add-stone (first poss) color board))))
-
 (defn possible-adds [color board]
   "list of all possible valid add move. A valid add is a pos that is
    - adjacent to color
@@ -105,6 +104,22 @@
   "check if pos is valid add. see possible-adds for rules"
   (find |(= pos ($ 0))
         (possible-adds color board)))
+
+
+
+(defn add-stone [pos color board]
+  "return a new board with a stone added given pos"
+  (when (not (possible-add? pos color board))
+    (error "not a valid add"))
+  (put (table/clone board) pos color))
+
+(defn add-stones [poss color board]
+  "return a new board with all the stones given added (recursively)"
+  (if (= (length poss) 1)
+    (add-stone (first poss) color board)
+    (add-stones (drop 1 poss)
+                color
+                (add-stone (first poss) color board))))
 
 (defn army-at [pos color board]
   "find all connected pieces (an army) for a color starting at a position. Returns board"
@@ -136,6 +151,13 @@
   (find |(= [;move :move] $)
         (possible-moves color board)))
 
+(defn move-stone [move color board]
+  "return a board with the stone moved"
+  (when (not (possible-move? move color board))
+    (error "not a valid move"))
+  (add-stone (move 1)
+             color
+             (remove-stone (move 0) board)))
 
 (defn starting-position [dir pos color board]
   "the furthest stone away from opponate on the push line (recursive)"
@@ -181,8 +203,10 @@
           (array/push pushes [dir pos :push]))))
     pushes))
 
-(defn push [dir pos color old-board]
+(defn push-stones [dir pos color old-board]
   "return a new board after a push action at the given pos and direction"
+  (when (not (possible-push? dir pos color old-board))
+    (error "not a valid push"))
   (let [new-board (table/clone old-board)
         pos (starting-position dir pos color new-board)
         iter (direction-iter dir)]
