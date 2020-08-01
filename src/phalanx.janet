@@ -8,55 +8,64 @@
      :left :right
      :right :left))
 
-(def board @{[2 2] :white
-             [2 3] :white
-             [3 2] :white
-             [3 3] :white
-             [7 7] :black
-             [7 8] :black
-             [8 7] :black
-             [8 8] :black})
+(defn starting-board []
+  @{[1 1] :white
+    [1 2] :white
+    [2 1] :white
+    [2 2] :white
+    [6 6] :black
+    [6 7] :black
+    [7 6] :black
+    [7 7] :black})
 
 (defn only [color board]
-  "return the stones for a given color."
+  "return the stones for a given color"
   (table ;(mapcat |(if (= color (get $ 1)) $ [])
                   (pairs board))))
 
 (defn free-stone-count [color board]
   "the number of remain stones (max of 9) looking at the stone-map"
-  (- 9 ((frequencies board) color)))
+  (- 9 (get (frequencies board) color 0)))
 
-(defn in-bounds [pos]
+(defn temple-position [color]
+  "position of the colors goal"
+  (match color
+    :black [0 0]
+    :white [8 8]))
+
+(defn in-bounds? [pos]
   "are the xy pos inside the bounds of the board (temples are out of bounds)"
-  (and (> (pos 0) 0) (<= (pos 0) 9)
-       (> (pos 1) 0) (<= (pos 1) 9)
-       (not= pos [1 1]) # black temple
-       (not= pos [9 9]))) # white temple
+  (let [[x y] pos]
+    (and (>= x 0) (< x 9)
+         (>= y 0) (< y 9)
+         (not= pos (temple-position :black))
+         (not= pos (temple-position :white)))))
 
 (defn neighbors-of [pos]
   "list of orthogonal neighbors of pos"
-  @[[(inc (pos 0)) (pos 1)]
-    [(dec (pos 0)) (pos 1)]
-    [(pos 0) (inc (pos 1))]
-    [(pos 0) (dec (pos 1))]])
+  (let [[x y] pos]
+    [[(inc x) y]
+     [(dec x) y]
+     [x (inc y)]
+     [x (dec y)]]))
 
-(defn are-neighbors [pos-a pos-b]
+(defn neighbors? [pos-a pos-b]
   "check if pos-a is an orthogonal in bounds neighbor of pos-b"
   (not= nil (find |(= $ pos-b) (neighbors-of pos-a))))
 
 (defn valid-neighbors [pos color board]
   "return the orthogonal neighbors which are the desired color.
    passing nil for color will find open neighbors"
-  (filter |(and (= color (get board $ nil)) (in-bounds $))
+  (filter |(and (= color (get board $ nil)) (in-bounds? $))
           (neighbors-of pos)))
 
 (defn direction-iter [direction]
   "return a function to move a pos in a directio"
   (match direction
-    :left  |(tuple (dec ($ 0)) ($ 1))
-    :right |(tuple (inc ($ 0)) ($ 1))
-    :up    |(tuple ($ 0) (dec ($ 1)))
-    :down  |(tuple ($ 0) (inc ($ 1)))))
+    :left  |[(dec ($ 0)) ($ 1)]
+    :right |[(inc ($ 0)) ($ 1)]
+    :up    |[($ 0) (dec ($ 1))]
+    :down  |[($ 0) (inc ($ 1))]))
 
 (defn remove-stone [pos board]
   "return a new board with a stone removed at given pos"
@@ -86,56 +95,130 @@
    - adjacent to color
    - in bounds
    - currently unoccupied
-   [[x y :add]]"
+   [((x y) :add)]"
   (distinct
-   (mapcat |(map |(tuple ;$ :add)
+   (mapcat |(map |(tuple $ :add)
                  (valid-neighbors $ nil board))
            (keys (only color board)))))
 
 (defn possible-add? [pos color board]
   "check if pos is valid add. see possible-adds for rules"
-  (find |(= pos $) (possible-adds color board)))
+  (find |(= pos ($ 0))
+        (possible-adds color board)))
 
-# TODO
-(defn army-at [pos color board] nil)
+(defn army-at [pos color board]
+  "find all connected pieces (an army) for a color starting at a position. Returns board"
+  (let [board (only color board)
+        army-board @{}]
+    (defn army-at-rec [pos]
+      (each neighbor (valid-neighbors pos color board)
+        (when (not (army-board neighbor))
+          (put army-board neighbor color)
+          (army-at-rec neighbor)))
+      army-board)
+    (army-at-rec pos)))
 
 (defn possible-moves [color board]
   "possible moves for the board, a move consists of...
    - from: current stone on board
    - to: valid add on a open (nil) location on board resulting from removing from stone
-  TODO: check army at
-  [[[x y] [x y] :move]]"
+  [((x y) (x2 y2) :move)]"
   (distinct
    (mapcat (fn [from]
-             (mapcat (fn [to] [[from (slice to 0 2) :move]])
-                      (possible-adds color (remove-stone from board))))
+             (mapcat (fn [to] [[from (to 0) :move]])
+                     (possible-adds
+                      color
+                      (remove-stone from (army-at from color board)))))
            (keys (only color board)))))
 
 (defn possible-move? [move color board]
   "check if pos is valid add. see possible-moves for rules"
-  (find |(and (= (move 0) ($ 0)) # only need to check to and from
-              (= (move 1) ($ 1)))
+  (find |(= [;move :move] $)
         (possible-moves color board)))
 
-# TODO
-(defn possible-pushes [dir pos color board] nil)
-(defn possible-push? [dir pos color board] nil)
-(defn push [dir pos color board] nil)
-(defn dead-stones [board] nil)
 
+(defn starting-position [dir pos color board]
+  "the furthest stone away from opponate on the push line (recursive)"
+  (let [next-pos ((direction-iter (flip dir)) pos)]
+    (cond
+      (= nil (board next-pos)) pos
+      (= (flip color) (board next-pos)) pos
+      (= color (board next-pos))
+      (starting-position dir next-pos color board))))
 
+# NOTE: unlike add and move, the logic to determine a valid push is in the single possible-push?
+#       function instead of the "all possible" list generator...it was just easier that way
+(defn possible-push? [dir pos color board]
+  "check if pos and dir is possible push for color on board"
+  (let [pos (starting-position dir pos color board)
+        iter (direction-iter dir)]
+    (defn possible-push-tail [pos ally-count opponate-count]
+      (cond
+        # next spot is a stone stone of your own color
+        (= color (board pos))
+        (if (> opponate-count 0)
+          (> ally-count opponate-count) # your squishing into yourself
+          (possible-push-tail (iter pos) (inc ally-count) opponate-count))
 
-# testing
-(each n (possible-adds :white test-board)
-  (print "x:" (get n 0) " y:" (get n 1)))
+        # next spot is a stone stone of opponates color
+        (= (flip color) (board pos))
+        (possible-push-tail (iter pos) ally-count (inc opponate-count))
 
+        # next spot is empty (default case)
+        (and (> opponate-count 0) # must be touching opponate
+             (> ally-count opponate-count)))) # must be longer then opponate
+    (if (= color (board pos))
+      (possible-push-tail pos 0 0)
+      false))) # must start on own color
 
+(defn possible-pushes [color board]
+  "list of all possible pushes for a color on the board
+  [:dir (x y) :push]"
+  (let [pushes @[]]
+    (loop [[pos color] :pairs board]
+      (each dir [:left :right :up :down]
+        (when (possible-push? dir pos color board)
+          (array/push pushes [dir pos :push]))))
+    pushes))
 
-# (each n (valid-neighbors {:x 3 :y 4} nil test-board)
-#   (print "x:" (get n :x) " y:" (get n :y)))
-# (print (get ((direction-iter UP) {:x 1 :y 3}) :y))
-# (print (are-neighbors [3 4] [3 2]))
-# (print (flip UP))
+(defn push [dir pos color old-board]
+  "return a new board after a push action at the given pos and direction"
+  (let [new-board (table/clone old-board)
+        pos (starting-position dir pos color new-board)
+        iter (direction-iter dir)]
+    (defn push-line-tail [pos prev-pos]
+      "NOTE: this mutates new-board"
+      (if (and (= (flip color) (old-board pos)) # handle squishing case
+               (= color (old-board (iter pos))))
+        (put new-board (iter pos) color)
+        (do
+          (put new-board pos prev-pos)
+          (when (old-board pos)
+            (push-line-tail (iter pos) (old-board pos))))))
+    (push-line-tail pos nil)
+    new-board))
 
-# (print (length (remove-stone {:x 3 :y 3} test-board)))
-# (print (length test-board))
+(defn dead? [pos color board]
+  "check if a stone is dead, it is dead if it
+  1. is not in bounds
+  2. has no friendly valid neighbors"
+  (or (= 0 (length (valid-neighbors pos color board)))
+      (not (in-bounds? pos))))
+
+(defn remove-dead-stones [board]
+  "new board with all dead/isolated stones removed from the board"
+  (table ;(mapcat |(if (dead? ($ 0) ($ 1) board) [] $)
+                  (pairs board))))
+
+(defn touching-temple? [color board]
+  "check if color is touching the temple"
+  (any? (map |(neighbors? $ (temple-position color))
+             (keys (only color board)))))
+
+(defn winner [board]
+  "return color that has won the game, else nil"
+  (cond
+    (= 9 (free-stone-count :black board)) :white
+    (= 9 (free-stone-count :white board)) :black
+    (touching-temple? :black board) :black
+    (touching-temple? :white board) :white))
