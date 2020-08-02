@@ -1,4 +1,4 @@
-An implimentation of a board game that may or may not have existed during the Hellenistic period. Written in [Fennel](https://fennel-lang.org).
+An implimentation of a board game that may or may not have existed during the Hellenistic period. Written in [Janet](https://janet-lang.org/index.html)
 
 ## Rules
 __To Win the Game:__ Either remove all opponents pieces (hoplites) from the board or connect to your goal. The game ends immediately when one of these conditions are met.
@@ -16,9 +16,3 @@ __Flow of Play:__ Black takes the first turn, then players alternate back and fo
 - __MOVE:__ move 1 hoplite to an adjacent intersection touching their army. You may split or merge phalanx, but hoplites may not jump between unconnected phalanx.
 - __RENFORCE/ADD:__ If you have less than 9 hoplites on the board, add a new hoplite to an existing phalanx
 - __PUSH:__ if your phalanx is connected to an opponent's, and the number of your hoplites is greater then the opponents in a straight line, and there is an open intersection on the other side of the line, you may slide the whole line towards the opponent's hoplites 1 intersection. Hoplites pushed off the board are dead.
-
-## External Libraries
-- [love2d](https://love2d.org/)
-- [lume](https://github.com/rxi/lume)
-- [lua-state-machine](https://github.com/kyleconroy/lua-state-machine)
-- [inspect.lua](https://github.com/kikito/inspect.lua)
