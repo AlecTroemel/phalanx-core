@@ -102,10 +102,8 @@
 
 (defn possible-add? [pos color board]
   "check if pos is valid add. see possible-adds for rules"
-  (find |(= pos ($ 0))
+  (find |(= [:add pos] $)
         (possible-adds color board)))
-
-
 
 (defn add-stone [pos color board]
   "return a new board with a stone added given pos"
@@ -130,7 +128,7 @@
         (when (not (army-board neighbor))
           (put army-board neighbor color)
           (army-at-rec neighbor)))
-      army-board)
+      army-board)pos
     (army-at-rec pos)))
 
 (defn possible-moves [color board]
@@ -140,37 +138,37 @@
   [(:move (x y) (x2 y2))]"
   (distinct
    (mapcat (fn [from]
-             (mapcat (fn [to] [[:move from (to 0)]])
+             (mapcat (fn [to] [[:move from (to 1)]])
                      (possible-adds
                       color
                       (remove-stone from (army-at from color board)))))
            (keys (only color board)))))
 
-(defn possible-move? [move color board]
+(defn possible-move? [from to color board]
   "check if pos is valid add. see possible-moves for rules"
-  (find |(= [;move :move] $)
+  (find |(= [:move from to] $)
         (possible-moves color board)))
 
 (defn move-stone [from to color board]
   "return a board with the stone moved"
-  (when (not (possible-move? move color board))
+  (when (not (possible-move? from to color board))
     (error "not a valid move"))
   (add-stone to color (remove-stone from board)))
 
-(defn starting-position [dir pos color board]
+(defn starting-position [pos dir color board]
   "the furthest stone away from opponate on the push line (recursive)"
   (let [next-pos ((direction-iter (flip dir)) pos)]
     (cond
       (= nil (board next-pos)) pos
       (= (flip color) (board next-pos)) pos
       (= color (board next-pos))
-      (starting-position dir next-pos color board))))
+      (starting-position next-pos dir color board))))
 
 # NOTE: unlike add and move, the logic to determine a valid push is in the single possible-push?
 #       function instead of the "all possible" list generator...it was just easier that way
-(defn possible-push? [dir pos color board]
+(defn possible-push? [pos dir color board]
   "check if pos and dir is possible push for color on board"
-  (let [pos (starting-position dir pos color board)
+  (let [pos (starting-position pos dir color board)
         iter (direction-iter dir)]
     (defn possible-push-tail [pos ally-count opponate-count]
       (cond
@@ -197,16 +195,16 @@
   (let [pushes @[]]
     (loop [[pos color] :pairs board]
       (each dir [:left :right :up :down]
-        (when (possible-push? dir pos color board)
+        (when (possible-push? pos dir color board)
           (array/push pushes [:push pos dir]))))
     pushes))
 
 (defn push-stones [pos dir color old-board]
   "return a new board after a push action at the given pos and direction"
-  (when (not (possible-push? dir pos color old-board))
+  (when (not (possible-push? pos dir color old-board))
     (error "not a valid push"))
   (let [new-board (table/clone old-board)
-        pos (starting-position dir pos color new-board)
+        pos (starting-position pos dir color new-board)
         iter (direction-iter dir)]
     (defn push-line-tail [pos prev-pos]
       "NOTE: this mutates new-board"

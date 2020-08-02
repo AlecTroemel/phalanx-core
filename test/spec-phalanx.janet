@@ -92,8 +92,8 @@
 
   # add-stone
   (test "add-stone: works"
-        (deep= @{[2 2] :white [2 3] :white}
-               (add-stone [2 3] :white @{[2 2] :white})))
+        (deep= (add-stone [2 3] :white @{[2 2] :white})
+               @{[2 2] :white [2 3] :white}))
 
   # add-stones
   (test "add-stones: works"
@@ -102,7 +102,7 @@
 
   # possible-adds
   (test "possible-adds: simple case"
-        (deep= @[[[1 3] :add] [[0 2] :add]]
+        (deep= @[[:add [1 3]] [:add [0 2]]]
                (possible-adds :white @{[0 3] :white [0 4] :black})))
 
   # possible-add?
@@ -126,33 +126,33 @@
                                         [2 3] :white
                                         [3 2] :white
                                         [3 3] :black})
-               @[[[3 2] [3 2] :move]
-                 [[3 2] [1 2] :move]
-                 [[3 2] [2 1] :move]
-                 [[3 2] [3 3] :move]
-                 [[3 2] [1 3] :move]
-                 [[3 2] [2 4] :move]
-                 [[2 2] [4 2] :move]
-                 [[2 2] [2 2] :move]
-                 [[2 2] [3 3] :move]
-                 [[2 2] [3 1] :move]
-                 [[2 2] [1 3] :move]
-                 [[2 2] [2 4] :move]
-                 [[2 3] [1 2] :move]
-                 [[2 3] [2 3] :move]
-                 [[2 3] [2 1] :move]
-                 [[2 3] [4 2] :move]
-                 [[2 3] [3 3] :move]
-                 [[2 3] [3 1] :move]]))
+               @[[:move [3 2] [3 2]]
+                 [:move [3 2] [1 2]]
+                 [:move [3 2] [2 1]]
+                 [:move [3 2] [3 3]]
+                 [:move [3 2] [1 3]]
+                 [:move [3 2] [2 4]]
+                 [:move [2 2] [4 2]]
+                 [:move [2 2] [2 2]]
+                 [:move [2 2] [3 3]]
+                 [:move [2 2] [3 1]]
+                 [:move [2 2] [1 3]]
+                 [:move [2 2] [2 4]]
+                 [:move [2 3] [1 2]]
+                 [:move [2 3] [2 3]]
+                 [:move [2 3] [2 1]]
+                 [:move [2 3] [4 2]]
+                 [:move [2 3] [3 3]]
+                 [:move [2 3] [3 1]]]))
 
   # possible-move?
   (test "possible-move?: it is"
-        (possible-move? [[2 2] [3 1]] :white @{[2 2] :white
+        (possible-move? [2 2] [3 1] :white @{[2 2] :white
                                                [2 3] :white
                                                [3 2] :white
                                                [3 3] :black}))
   (test "possible-move?: it aint"
-        (not (possible-move? [[2 4] [6 1]] :white @{[2 2] :white
+        (not (possible-move? [2 4] [6 1] :white @{[2 2] :white
                                                     [2 3] :white
                                                     [3 2] :white
                                                     [3 3] :black})))
@@ -199,23 +199,23 @@
   # starting-position
   (test "starting-position: up to opponate stone"
         (= [2 3]
-           (starting-position :up [2 2] :white @{[2 2] :white
+           (starting-position [2 2] :up  :white @{[2 2] :white
                                                  [2 3] :white
                                                  [2 4] :black})))
   (test "starting-position: up to open space"
         (= [2 3]
-           (starting-position :up [2 2] :white @{[2 2] :white
+           (starting-position [2 2] :up :white @{[2 2] :white
                                                  [2 3] :white})))
 
   # possible-push?
   (test "possible-push?: simple case"
-        (possible-push? :up [2 2] :white @{[1 1] :black
+        (possible-push? [2 2] :up :white @{[1 1] :black
                                            [2 1] :black
                                            [2 2] :white
                                            [2 3] :white
                                            [2 4] :white}))
   (test "possible-push?: squish into yourself"
-        (possible-push? :up [2 2] :white @{[1 0] :white
+        (possible-push? [2 2] :up :white @{[1 0] :white
                                            [2 0] :white
                                            [1 1] :black
                                            [2 1] :black
@@ -223,22 +223,22 @@
                                            [2 3] :white
                                            [2 4] :white}))
   (test "possible-push?: push off board"
-        (possible-push? :up [2 2] :white @{[1 0] :black
+        (possible-push? [2 2] :up :white @{[1 0] :black
                                            [2 0] :black
                                            [2 1] :white
                                            [2 2] :white
                                            [2 3] :white}))
   (test "possible-push?: not touching opponate"
-        (not (possible-push? :up [2 2] :white @{[2 1] :white
+        (not (possible-push? [2 2] :up :white @{[2 1] :white
                                                 [2 2] :white
                                                 [2 3] :white})))
   (test "possible-push?: not longer then opponate"
-        (not (possible-push? :up [2 2] :white @{[2 0] :black
+        (not (possible-push? [2 2] :up :white @{[2 0] :black
                                                 [2 1] :black
                                                 [2 2] :white
                                                 [2 3] :white})))
   (test "possible-push?: bad starting pos"
-        (not (possible-push? :up [2 2] :white @{})))
+        (not (possible-push? [2 2] :up :white @{})))
 
   # possible-pushes
   (test "possible-pushes: all directions"
@@ -250,18 +250,18 @@
                                          [6 4] :black
                                          [3 5] :black
                                          [4 6] :black})
-               @[[:right [4 4] :push]
-                 [:down [4 4] :push]
-                 [:left [4 5] :push]
-                 [:down [4 5] :push]
-                 [:right [5 4] :push]
-                 [:up [5 4] :push]
-                 [:left [5 5] :push]
-                 [:up [5 5] :push]]))
+               @[[:push [4 4] :right]
+                 [:push [4 4] :down]
+                 [:push [4 5] :left]
+                 [:push [4 5] :down]
+                 [:push [5 4] :right]
+                 [:push [5 4] :up]
+                 [:push [5 5] :left]
+                 [:push [5 5] :up]]))
 
-  # push
-  (test "push: simple case"
-        (deep= (push-stones :up [2 2] :white @{[1 1] :black
+  # push-stones
+  (test "push-stones: simple case"
+        (deep= (push-stones [2 2] :up :white @{[1 1] :black
                                                [2 1] :black
                                                [2 2] :white
                                                [2 3] :white
@@ -274,9 +274,9 @@
 
   # move
   (test "move: simple case"
-        (deep= (move-stone [[2 2] [3 1]] :white @{[2 2] :white
-                                                  [2 1] :white
-                                                  [2 0] :white})
+        (deep= (move-stone [2 2] [3 1] :white @{[2 2] :white
+                                                [2 1] :white
+                                                [2 0] :white})
                @{[2 0] :white
                  [2 1] :white
                  [3 1] :white}))
