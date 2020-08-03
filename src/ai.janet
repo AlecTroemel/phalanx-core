@@ -39,16 +39,10 @@
                 (phalanx/possible-moves color board)
                 (phalanx/possible-pushes color board)))
 
-(defn execute [action color board]
-  "returns a board where the action was executed"
-  (match (action 0)
-    :add (phalanx/add-stone (action 1) color board)
-    :move (phalanx/move-stone (action 1) (action 2) color board)
-    :push (phalanx/push-stones (action 1) (action 2) color board)))
 
 (defn pick-action [color board]
   "picks (best) action for the AI to play"
   (first
    (sort
-    (map |(rate-position color (execute $ color board))
+    (map |(rate-position color (phalanx/execute $ color board))
          (possible-actions color board)))))
