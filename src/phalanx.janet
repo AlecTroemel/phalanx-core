@@ -246,6 +246,6 @@
 (defn execute [action color board]
   "returns a board where the action was executed"
   (match (action 0)
-    :add (phalanx/add-stone (action 1) color board)
-    :move (phalanx/move-stone (action 1) (action 2) color board)
-    :push (phalanx/push-stones (action 1) (action 2) color board)))
+    :add (add-stone (action 1) color board)
+    :move (move-stone (action 1) (action 2) color board)
+    :push (push-stones (action 1) (action 2) color board)))
