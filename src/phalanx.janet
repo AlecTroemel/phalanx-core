@@ -8,6 +8,19 @@
      :left :right
      :right :left))
 
+(defn to-keyword [thing]
+  "convert the string to its keyword"
+  (match thing
+     "white" :white
+     "black" :black
+     "add" :add
+     "move" :move
+     "push" :push
+     "up" :up
+     "down" :down
+     "left" :left
+     "right" :right))
+
 (defn starting-board []
   @{[1 1] :white
     [1 2] :white
