@@ -259,6 +259,6 @@
 (defn execute [action params color board]
   "returns a board where the action was executed"
   (match action
-    :add (add-stone (params 0) color board)
+    :add (add-stone params color board)
     :move (move-stone (params 0) (params 1) color board)
     :push (push-stones (params 0) (params 1) color board)))
