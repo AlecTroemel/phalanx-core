@@ -243,9 +243,9 @@
     (touching-temple? :black board) :blackg
     (touching-temple? :white board) :white))
 
-(defn execute [action color board]
+(defn execute [action params color board]
   "returns a board where the action was executed"
-  (match (action 0)
-    :add (add-stone (action 1) color board)
-    :move (move-stone (action 1) (action 2) color board)
-    :push (push-stones (action 1) (action 2) color board)))
+  (match action
+    :add (add-stone (params 0) color board)
+    :move (move-stone (params 0) (params 1) color board)
+    :push (push-stones (params 0) (params 1) color board)))
