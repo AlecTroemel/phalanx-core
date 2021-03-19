@@ -3,23 +3,10 @@
   (match thing
      :white :black
      :black :white
-     :up :down
-     :down :up
-     :left :right
+     :up    :down
+     :down  :up
+     :left  :right
      :right :left))
-
-(defn to-keyword [thing]
-  "convert the string to its keyword"
-  (match thing
-     "white" :white
-     "black" :black
-     "add" :add
-     "move" :move
-     "push" :push
-     "up" :up
-     "down" :down
-     "left" :left
-     "right" :right))
 
 (defn starting-board []
   @{[1 1] :white
@@ -255,10 +242,3 @@
     (= 9 (free-stone-count :white board)) :black
     (touching-temple? :black board) :blackg
     (touching-temple? :white board) :white))
-
-(defn execute [action params color board]
-  "returns a board where the action was executed"
-  (match action
-    :add (add-stone params color board)
-    :move (move-stone (params 0) (params 1) color board)
-    :push (push-stones (params 0) (params 1) color board)))
