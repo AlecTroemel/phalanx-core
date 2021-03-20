@@ -19,15 +19,17 @@
     [7 7] :black})
 
 (defn print-board [board]
-  (print "|---- BOARD ----|")
+  (print "  ╔═══════════════════╗")
   (for i 0 9
+    (prin i " ║")
     (for j 0 9
-      (prin "|" (match (board [j i])
+      (prin " " (match (board [j i])
                    :white "W"
                    :black "B"
-                   _ " ")))
-    (print ""))
-  (print "|---------------|"))
+                   _ "·")))
+    (print " ║"))
+  (print "  ╚═══════════════════╝")
+  (print "    0 1 2 3 4 5 6 7 8   "))
 
 (defn only [color board]
   "return the stones for a given color"
@@ -136,13 +138,15 @@
    - from: current stone on board
    - to: valid add on a open (nil) location on board resulting from removing from stone
   [(:move (x y) (x2 y2))]"
-  (distinct
-   (mapcat (fn [from]
-             (mapcat (fn [to] [[:move from (to 1)]])
-                     (possible-adds
-                      color
-                      (remove-stone from (army-at from color board)))))
-           (keys (only color board)))))
+  (filter
+   (fn [action] (not= (action 1) (action 2)))
+   (distinct
+    (mapcat (fn [from]
+              (mapcat (fn [to] [[:move from (to 1)]])
+                      (possible-adds
+                       color
+                       (remove-stone from (army-at from color board)))))
+            (keys (only color board))))))
 
 (defn possible-move? [from to color board]
   "check if pos is valid add. see possible-moves for rules"
