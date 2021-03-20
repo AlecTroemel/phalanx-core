@@ -245,5 +245,5 @@
   (cond
     (= 9 (free-stone-count :black board)) :white
     (= 9 (free-stone-count :white board)) :black
-    (touching-temple? :black board) :blackg
+    (touching-temple? :black board) :black
     (touching-temple? :white board) :white))

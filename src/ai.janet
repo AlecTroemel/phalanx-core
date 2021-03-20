@@ -21,6 +21,11 @@
       (map |(distance temple $)
            (keys (phalanx/only color board)))))))
 
+(defn- average-distance-to-temple [color board]
+  (let [temple (phalanx/temple-position color)
+        positions (keys (phalanx/only color board))]
+    (/ (sum (map |(distance temple $) positions)) (length positions))))
+
 (defn- rate-position [color board]
   "give a value for the colors position on the board"
   (cond
@@ -29,17 +34,17 @@
 
       # otherwise judge current position
       (let [# closer to temple => closer to 1
-            distance-weight 10
-            distance (closest-distance-to-temple color board)
-            distance-score (/ 1 distance)
+            distance-weight 1
+            distance (average-distance-to-temple color board)
+            distance-score (- distance) # (/ 1 distance)
 
             # more stones then opponant you have => closer to 1
             # if opponant has more stones then you, then this will be negative
-            color-count-weight 40
+            color-count-weight 2
             board-freq (frequencies board)
             color-count (get board-freq color 0)
             other-color-count (get board-freq (phalanx/flip color) 0)
-            color-count-score (/ (- color-count other-color-count) 9)]
+            color-count-score (- color-count other-color-count)] #(/ (- color-count other-color-count) 9)
         (+
          (* distance-score distance-weight)
          (* color-count-score color-count-weight)))))
@@ -63,7 +68,7 @@
   (cond
     # Base case
     (or (= depth 0) (phalanx/winner (state :board)))
-    {:score (rate-position (state :side-to-move) (state :board))
+    {:score (rate-position side-to-max (state :board))
      :actions seen-actions}
 
     # Maximize
