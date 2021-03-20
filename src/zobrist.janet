@@ -6,6 +6,21 @@
 # | https://www.geeksforgeeks.org/minimax-algorithm-in-game-theory-set-5-zobrist-hashing/
 # ------------------------------------------------------|
 
+(defn- get-hash [self state]
+  (let [board (state :board)
+        side-to-move (state :side-to-move)]
+    (bxor
+     (splice (map |(let [(pos side) $] (get ((self :tab) side) pos)) (pairs board)))
+     (if (= side-to-move :white) ((self :tab) :white-to-move) 0))))
+
+# (defn- get-set [self state default-exp]
+#   (let [key (:get-hash self state)
+#         result (get-in self [:history key])
+#        ]
+#     (if result result
+#         (do
+#           ))))
+
 (defn init [size]
   (let [rng (math/rng (os/time))
         z-tab @{:white @{} :black @{}}]
@@ -14,13 +29,7 @@
         (for y 0 size
           (put (z-tab side) [x y] (math/rng-int rng)))))
     (put z-tab :white-to-move (math/rng-int rng))
-    z-tab))
 
-(defn get-hash [z-tab side-to-move board]
-  (bxor
-   (splice (map |(let [(pos side) $]
-                   (get (z-tab side) pos))
-                (pairs board)))
-   (if (= side-to-move :white)
-     (z-tab :white-to-move)
-     0)))
+    @{:history @{}
+      :tab z-tab
+      :get-hash get-hash}))

@@ -38,17 +38,14 @@
       :turn-count new-turn-count
       :turn-remaining-actions new-turn-remaining-actions})))
 
+
+
 (defn init []
   @{:board-size 9
     :board (phalanx/starting-board)
-    :black-conf @{:control (keyword "controller") :moves-per-turn 3}
+    :black-conf @{:control (keyword "ai") :moves-per-turn 3}
     :white-conf @{:control (keyword "ai") :moves-per-turn 3}
     :side-to-move (keyword "black")
     :turn-count 0
     :turn-remaining-actions 3
     :execute state-execute})
-
-(varglobal :s (init))
-(phalanx/print-board (s :board))
-(phalanx/print-board ((:execute s [:add '(5 6)]) :board))
-(phalanx/print-board ((:execute s [:move '(7 7) '(5 6)]) :board))

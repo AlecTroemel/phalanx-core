@@ -1,48 +1,136 @@
 # ------------------------------------------------------|
-# | An (extremely dumb) AI player. It currently just    |
-# | looks at the board and picks the best action from a |
-# | (very simple) heuristic. It DOES NOT CURRENTLY      |
-# |  - look at all 3 actions in conjunction. it simply  |
-# |    does them 1 at a time in isolation;              |
-# |  - look at opponate turns (min/max alg)             |
+# | An AI player. Uses the minmax algorith with:        |
+# |  - Alpha beta pruning                               |
+# |  - Zobrist hashing                                  |
 # ------------------------------------------------------|
-(import ./phalanx)
 
-(defn distance [a b]
+(import /phalanx)
+(import /zobrist)
+(import /state)
+
+(defn- distance [a b]
   "the distance between points a and b (in 2d)."
-  (math/sqrt (+ (math/pow (- (b 0) (a 0)) 21)
+  (math/sqrt (+ (math/pow (- (b 0) (a 0)) 2)
                 (math/pow (- (b 1) (a 1)) 2))))
 
-(defn distance-to-temple [color board]
-  "calculate the distance (straight line) the closest stone of color is to their goal"
+(defn- closest-distance-to-temple [color board]
+  "find the closest distance (in a straight line) of a colors stones to their goal"
   (let [temple (phalanx/temple-position color)]
     (first
      (sort
       (map |(distance temple $)
            (keys (phalanx/only color board)))))))
 
-(defn rate-position [color board]
+(defn- rate-position [color board]
   "give a value for the colors position on the board"
-  (if (phalanx/touching-temple? color board)
-    # if you're touching your temple, you've won
-    100
-    # otherwise judge current position
-    (let [distance (distance-to-temple color board)
-          board-freq (frequencies board)
-          color-count (get board-freq color 0)
-          other-color-count (get board-freq (phalanx/flip color) 0)]
-      (+ (/ 1 distance) (/ 1 (- color-count other-color-count))))))
+  (cond
+      (phalanx/touching-temple? color board) 100 # you've won
+      (phalanx/touching-temple? (phalanx/flip color) board) (- 100) # they've won
 
-(defn possible-actions [color board]
-  "list of every possible action for a color on a board"
+      # otherwise judge current position
+      (let [# closer to temple => closer to 1
+            distance-weight 10
+            distance (closest-distance-to-temple color board)
+            distance-score (/ 1 distance)
+
+            # more stones then opponant you have => closer to 1
+            # if opponant has more stones then you, then this will be negative
+            color-count-weight 20
+            board-freq (frequencies board)
+            color-count (get board-freq color 0)
+            other-color-count (get board-freq (phalanx/flip color) 0)
+            color-count-score (/ (- color-count other-color-count) 9)]
+        (+
+         (* distance-score distance-weight)
+         (* color-count-score color-count-weight)))))
+
+(defn- possible-actions [color board]
+  "list of every possible action for a color on a board.
+   NOTE: to optimize AI (apha beta pruning), better moves should come first
+         in general adds are better then pushes, which are better then moves
+   TODO: another optimization could be done to favor actions closer to your goal"
   (array/concat (phalanx/possible-adds color board)
-                (phalanx/possible-moves color board)
-                (phalanx/possible-pushes color board)))
+                (phalanx/possible-pushes color board)
+                (phalanx/possible-moves color board)))
 
+# https://en.wikipedia.org/wiki/Alpha%E2%80%93beta_pruning#Pseudocode
+# DONE: impliment state
+# DONE: return list of actions taken with score
+# DONE: add zobrist hashing history
+# TODO: limit zobrist history length
 
-(defn pick-action [color board]
-  "picks (best) action for the AI to play"
-  (first
-   (sort
-    (map |(rate-position color (phalanx/execute $ color board))
-         (possible-actions color board)))))
+(defn- alphabeta [self state depth alpha beta side-to-max seen-actions]
+  "minmax + alpha-beta + zobrist-hashing"
+  (cond
+    # Base case
+    (or (= depth 0) (phalanx/winner (state :board)))
+    {:score (rate-position (state :side-to-move) (state :board))
+     :actions seen-actions}
+
+    # Maximize
+    (= (state :side-to-move) side-to-max)
+    (let [z-key (:get-hash (self :zobrist) state)
+          z-result (get-in self [:zobrist :history z-key])]
+      (if z-result
+        {:score (z-result :score)
+         :actions [(splice seen-actions) (z-result :action)]}
+        (do
+          (var alpha alpha)
+          (var max-eval @{:score math/-inf :actions nil})
+          (loop [action
+                 :in (possible-actions (state :side-to-move) (state :board))
+                 :until (<= beta alpha)
+                 :let [new-seen-actions [(splice seen-actions) action]
+                       child-state (:execute state action)
+                       child-result (:alphabeta self child-state (- depth 1) alpha beta side-to-max new-seen-actions)]]
+            (when (> (child-result :score) (max-eval :score))
+              (set max-eval child-result))
+            (set alpha (max alpha (max-eval :score))))
+          (put-in self [:zobrist :history z-key] {:score (max-eval :score) :action (last (max-eval :actions))})
+          max-eval)))
+
+    # Minimize (side to max not states "current turn")
+    (let [z-key (:get-hash (self :zobrist) state)
+          z-result (get-in self [:zobrist :history z-key])]
+      (if z-result
+        {:score (z-result :score)
+         :actions [(splice seen-actions) (z-result :action)]}
+        (do
+          (var beta beta)
+          (var min-eval @{:score math/inf :actions nil})
+          (loop [action
+                 :in (possible-actions (state :side-to-move) (state :board))
+                 :until (<= beta alpha)
+                 :let [new-seen-actions [(splice seen-actions) action]
+                       child-state (:execute state action)
+                       child-result (:alphabeta self child-state (- depth 1) alpha beta side-to-max new-seen-actions)]]
+            (when (< (child-result :score) (min-eval :score))
+              (set min-eval child-result))
+            (set beta (min beta (min-eval :score))))
+          (put-in self [:zobrist :history z-key] {:score (min-eval :score) :action (last (min-eval :actions))})
+          min-eval)))))
+
+(defn- pick-actions [self state side-to-max]
+  (get (:alphabeta self state 3 math/-inf math/inf side-to-max []) :actions))
+
+(defn init []
+  @{:zobrist (zobrist/init 9)
+    :alphabeta alphabeta
+    :pick-actions pick-actions})
+
+# ----  Testing  ----
+(def s (state/init))
+(phalanx/print-board (s :board))
+
+(def ai (init))
+
+(printf "start:    %q" (os/date))
+(def chosen-actions (:pick-actions ai s :black))
+(printf "complete: %q" (os/date))
+
+(printf "history length: %n" (length (keys (get-in ai [:zobrist :history]))))
+(print (string/format "%q" chosen-actions))
+
+# (phalanx/print-board (s :board))
+# (phalanx/print-board ((:execute s [:add '(5 6)]) :board))
+# (phalanx/print-board ((:execute s [:move '(7 7) '(5 6)]) :board))
