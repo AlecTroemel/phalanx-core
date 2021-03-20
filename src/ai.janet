@@ -85,6 +85,7 @@
             (when (> (child-result :score) (max-eval :score))
               (set max-eval child-result))
             (set alpha (max alpha (max-eval :score))))
+
           (put-in self [:zobrist :history z-key] {:score (max-eval :score) :action (last (max-eval :actions))})
           max-eval)))
 

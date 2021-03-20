@@ -7,13 +7,14 @@
         turn-remaining-actions (self :turn-remaining-actions)
         side-to-move (self :side-to-move)
 
-        # actually exectue the action on the board
+        # actualy execute the action on the board
         action-type (first action)
         action-params (array/slice action 1)
         new-board (match action-type
                     :add  (phalanx/add-stone (splice action-params) side-to-move board)
                     :move (phalanx/move-stone (splice action-params) side-to-move board)
                     :push (phalanx/push-stones (splice action-params) side-to-move board))
+        new-board (phalanx/remove-dead-stones new-board)
 
         # Manage the turns after make the move
         flipping-sides (= turn-remaining-actions 1)

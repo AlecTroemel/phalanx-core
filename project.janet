@@ -9,3 +9,6 @@
 
 (declare-source
  :source @["src/phalanx.janet"])
+
+(declare-project
+ :dependencies ["https://github.com/joy-framework/tester"])

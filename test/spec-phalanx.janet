@@ -1,4 +1,4 @@
-(import tester :prefix "")
+(import tester :prefix "" :exit false)
 (import ./../src/phalanx :prefix "")
 
 (deftest
