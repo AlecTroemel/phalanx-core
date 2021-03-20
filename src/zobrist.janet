@@ -6,6 +6,8 @@
 # | https://www.geeksforgeeks.org/minimax-algorithm-in-game-theory-set-5-zobrist-hashing/
 # ------------------------------------------------------|
 
+# TODO https://adamberent.com/2019/03/02/transposition-table-and-zobrist-hashing/
+
 (defn- get-hash [self state]
   (let [board (state :board)
         side-to-move (state :side-to-move)]
