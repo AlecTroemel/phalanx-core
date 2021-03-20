@@ -28,7 +28,7 @@
                                      (- turn-remaining-actions 1))
 
         # going second gives your an extra actions on your first turn
-        new-turn-remaining-actions (if (= turn-count 1)
+        new-turn-remaining-actions (if (and flipping-sides (= new-turn-count 1))
                                      (+ 1 new-turn-remaining-actions)
                                      new-turn-remaining-actions)]
     (merge

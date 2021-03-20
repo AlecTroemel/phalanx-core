@@ -35,7 +35,7 @@
 
             # more stones then opponant you have => closer to 1
             # if opponant has more stones then you, then this will be negative
-            color-count-weight 20
+            color-count-weight 40
             board-freq (frequencies board)
             color-count (get board-freq color 0)
             other-color-count (get board-freq (phalanx/flip color) 0)
@@ -57,8 +57,7 @@
 # DONE: impliment state
 # DONE: return list of actions taken with score
 # DONE: add zobrist hashing history
-# TODO: limit zobrist history length
-
+# TODO: limit zobrist history length https://adamberent.com/2019/03/02/transposition-table-and-zobrist-hashing/
 (defn- alphabeta [self state depth alpha beta side-to-max seen-actions]
   "minmax + alpha-beta + zobrist-hashing"
   (cond
@@ -80,7 +79,7 @@
           (loop [action
                  :in (possible-actions (state :side-to-move) (state :board))
                  :until (<= beta alpha)
-                 :let [new-seen-actions [(splice seen-actions) action]
+                 :let [new-seen-actions [(splice seen-actions) [(state :side-to-move) action]]
                        child-state (:execute state action)
                        child-result (:alphabeta self child-state (- depth 1) alpha beta side-to-max new-seen-actions)]]
             (when (> (child-result :score) (max-eval :score))
@@ -101,7 +100,7 @@
           (loop [action
                  :in (possible-actions (state :side-to-move) (state :board))
                  :until (<= beta alpha)
-                 :let [new-seen-actions [(splice seen-actions) action]
+                 :let [new-seen-actions [(splice seen-actions) [(state :side-to-move) action]]
                        child-state (:execute state action)
                        child-result (:alphabeta self child-state (- depth 1) alpha beta side-to-max new-seen-actions)]]
             (when (< (child-result :score) (min-eval :score))
@@ -111,26 +110,9 @@
           min-eval)))))
 
 (defn- pick-actions [self state side-to-max]
-  (get (:alphabeta self state 3 math/-inf math/inf side-to-max []) :actions))
+  (get (:alphabeta self state 1 math/-inf math/inf side-to-max []) :actions))
 
 (defn init []
   @{:zobrist (zobrist/init 9)
     :alphabeta alphabeta
     :pick-actions pick-actions})
-
-# ----  Testing  ----
-(def s (state/init))
-(phalanx/print-board (s :board))
-
-(def ai (init))
-
-(printf "start:    %q" (os/date))
-(def chosen-actions (:pick-actions ai s :black))
-(printf "complete: %q" (os/date))
-
-(printf "history length: %n" (length (keys (get-in ai [:zobrist :history]))))
-(print (string/format "%q" chosen-actions))
-
-# (phalanx/print-board (s :board))
-# (phalanx/print-board ((:execute s [:add '(5 6)]) :board))
-# (phalanx/print-board ((:execute s [:move '(7 7) '(5 6)]) :board))

@@ -19,17 +19,17 @@
     [7 7] :black})
 
 (defn print-board [board]
-  (print "  ╔═══════════════════╗")
-  (for i 0 9
-    (prin i " ║")
-    (for j 0 9
-      (prin " " (match (board [j i])
+  (print "  X 0 1 2 3 4 5 6 7 8   ")
+  (print "Y ╔═══════════════════╗")
+  (for y 0 9
+    (prin y " ║")
+    (for x 0 9
+      (prin " " (match (board [x y])
                    :white "W"
                    :black "B"
                    _ "·")))
     (print " ║"))
-  (print "  ╚═══════════════════╝")
-  (print "    0 1 2 3 4 5 6 7 8   "))
+  (print "  ╚═══════════════════╝"))
 
 (defn only [color board]
   "return the stones for a given color"
@@ -104,12 +104,16 @@
 
 (defn possible-add? [pos color board]
   "check if pos is valid add. see possible-adds for rules"
-  (find |(= [:add pos] $)
-        (possible-adds color board)))
+  (and
+    (nil? (get board pos)) # is empty spot
+    (not (empty? (valid-neighbors pos color board))))) # adjancent to same color
 
 (defn add-stone [pos color board]
   "return a new board with a stone added given pos"
   (when (not (possible-add? pos color board))
+    (printf "bad add: %q %q" pos color)
+    (printf "%q" (possible-adds color board))
+    # (print-board board)
     (error "not a valid add"))
   (put (table/clone board) pos color))
 
@@ -138,15 +142,14 @@
    - from: current stone on board
    - to: valid add on a open (nil) location on board resulting from removing from stone
   [(:move (x y) (x2 y2))]"
-  (filter
-   (fn [action] (not= (action 1) (action 2)))
-   (distinct
-    (mapcat (fn [from]
-              (mapcat (fn [to] [[:move from (to 1)]])
-                      (possible-adds
-                       color
-                       (remove-stone from (army-at from color board)))))
-            (keys (only color board))))))
+  (var moves @[])
+  (each from (keys (only color board))
+    (let [army (remove-stone from (army-at from color board))
+          board-without-from (remove-stone from board)]
+      (each to army
+        (when (possible-add? to color board-without-from)
+          (array/push moves [:move from to])))))
+  moves)
 
 (defn possible-move? [from to color board]
   "check if pos is valid add. see possible-moves for rules"
@@ -206,6 +209,7 @@
 (defn push-stones [pos dir color old-board]
   "return a new board after a push action at the given pos and direction"
   (when (not (possible-push? pos dir color old-board))
+    (printf "bad push: %q %q %q" pos dir color)
     (error "not a valid push"))
   (let [new-board (table/clone old-board)
         pos (starting-position pos dir color new-board)
