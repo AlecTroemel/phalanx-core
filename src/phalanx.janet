@@ -24,10 +24,17 @@
   (for y 0 9
     (prin y " ║")
     (for x 0 9
-      (prin " " (match (board [x y])
-                   :white "W"
-                   :black "B"
-                   _ "·")))
+      (cond
+        (= [x y] [0 0])
+        (prin " B")
+
+        (= [x y] [8 8])
+        (prin " W")
+
+        (prin " " (match (board [x y])
+                    :white "w"
+                    :black "b"
+                    nil "·"))))
     (print " ║"))
   (print "  ╚═══════════════════╝"))
 

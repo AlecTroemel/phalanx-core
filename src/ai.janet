@@ -3,6 +3,9 @@
 # |  - Alpha beta pruning                               |
 # |  - Zobrist hashing                                  |
 # ------------------------------------------------------|
+# TODO: Ideas to make AI smarter.
+#       - teach "rate-position" about good & bad shapes
+#       - teach "rate-position" to protect its temple
 
 (import /phalanx)
 (import /zobrist)
@@ -116,7 +119,7 @@
           min-eval)))))
 
 (defn- pick-actions [self state side-to-max]
-  (get (:alphabeta self state 1 math/-inf math/inf side-to-max []) :actions))
+  (get (:alphabeta self state 2 math/-inf math/inf side-to-max []) :actions))
 
 (defn init []
   @{:zobrist (zobrist/init 9)
