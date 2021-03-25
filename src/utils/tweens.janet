@@ -36,12 +36,14 @@
 
 # warning: magic numbers ahead
 (def-tween back (* s s (- (* s 2.70158) 1.70158)))
+
 (def-tween bounce
   (let [a 7.5625 b (/ 1 2.75)]
     (min (* a (math/pow s 2))
          (+ 0.75 (* a (math/pow (- s (* b (- 1.5))) 2)))
          (+ 0.9375 (* a (math/pow (- s (* b (- 2.25))) 2)))
          (+ 0.984375 (* a (math/pow (- s (* b (- 2.625))) 2))))))
+
 (def-tween elastic
   (let [amp 1
         period 0.3
