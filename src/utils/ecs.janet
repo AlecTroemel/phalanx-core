@@ -17,11 +17,12 @@
      ,(map |(keyword (first $)) components)
      ,(map |(eval $) components))))
 
-(defn add-system [world query func]
-  "Add a system to the world for the given query."
+(defn register-system [world query func]
+  "register a system for the query in the world."
   (array/push (get world :systems) [query func]))
 
 (defn- update [self dt]
+  "call all registers systems for entities matching thier queries."
   (each (query func) (get self :systems)
     (each match (filter (fn [e] (all |(get e $) query)) (self :entities))
       (func ;(map |(get match $) query) dt))))
