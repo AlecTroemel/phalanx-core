@@ -27,7 +27,7 @@
     (each match (filter (fn [e] (all |(get e $) query)) (self :entities))
       (func ;(map |(get match $) query) dt))))
 
-(defn init []
+(defn create-world []
   @{:entities @[]
     :systems @[]
     :update update})
