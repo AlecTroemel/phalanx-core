@@ -9,22 +9,22 @@
 # update: Update the game state. Called every frame.
 # draw:   Draw on the screen. Called every frame.
 
-(defn- noop [& _] nil)
+(defn- exec-if-has [t f & args]
+  (when (get t f) (f (get t g) ;args)))
 
 (defn- change-state [self to & args]
   (let [pre (array/peek (self :_stack))]
-    (when (nil? (get-in self [:initialized-states to]))
-      ((get to :init noop) to))
+    (when (get-in self [:initialized-states to])
+      (exec-if-has to :init to))
     (put-in self [:initialized-states to] true)
     (array/push (self :_stack) to)
-    ((get to :enter noop) to pre ;args)))
+    (exec-if-has to :enter to pre ;args)))
 
 (defn- switch [self to & args]
   "Switch to a gamestate, with any additional arguments passed to the new state."
-  (let [pre (array/peek (self :_stack))]
-    ((get pre :leave noop) pre)
-    (array/pop (self :_stack))
-    (:change-state self to ;args)))
+  (exec-if-has (:current self) :leave pre)
+  (array/pop (self :_stack))
+  (:change-state self to ;args))
 
 (defn- push [self to & args]
   "Pushes the to on top of the state stack, i.e. makes it the active state. Semantics are the same as switch, except that the leave callback is not called on the previously active state."
@@ -35,22 +35,20 @@
   (assert (> (length (self :_stack)) 1) "No more states to pop!")
   (let [pre (array/pop (self :_stack))
         to (array/peek (self :_stack))]
-    ((get pre :leave noop) pre)
-    ((get to :resume noop) to pre ;args)))
+    (exec-if-has pre :leave pre)
+    (exec-if-has to :resume to pre ;args)))
 
 (defn- current [self]
   "Returns the currently activated gamestate."
   (array/peek (self :_stack)))
 
 (defn- update [self & args]
-  "Update the game state. Called every frame. Intended to be called every game tick"
-  (when (get (:current self) :update)
-    (:update (:current self) ;args)))
+  "Update the game state. Called every frame."
+  (exec-if-has (:current self) :update ;args))
 
 (defn- draw [self & args]
   "Draw on the screen. Called every frame."
-  (when (get (:current self) :draw)
-    (:draw (:current self) ;args)))
+  (exec-if-has (:current self) :draw ;args))
 
 (defn init []
   "create a new gamestate manager"
