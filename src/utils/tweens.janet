@@ -45,11 +45,7 @@
          (+ 0.984375 (* a (math/pow (- s (* b (- 2.625))) 2))))))
 
 (def-tween elastic
-  (let [amp 1
-        period 0.3
-        neg-amp (- amp)]
-    (* (* neg-amp (math/sin (- (* 2
-                                  (/ math/pi period)
-                                  (- s 1))
-                               (math/asin (/ 1 amp)))))
+  (let [amp 1 period 0.3]
+    (* (- amp)
+       (math/sin (- (* 2 (/ math/pi period) (- s 1)) (math/asin (/ 1 amp))))
        (math/exp2 (* 10 (dec s))))))
