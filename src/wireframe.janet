@@ -50,7 +50,7 @@
               [1  5] [2  6] [3  7] [4  8]]}))
 
 (defn create-cylinder [x y z r h]
-  "TODO: create nodes and edges for a cylinder")
+  "TODO: generate nodes and edges for a cylinder")
 
 (defn create-grid [x y z c d s]
   "TODO: generate grid"
